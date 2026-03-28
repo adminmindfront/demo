@@ -63,6 +63,11 @@
       }
 
       #arBtn {
+        position: fixed;
+        left: 50%;
+        bottom: 1.2rem;
+        transform: translateX(-50%);
+        z-index: 20;
         border: 0;
         border-radius: 999px;
         padding: 1rem 1.2rem;
@@ -102,7 +107,9 @@
       touch-action="pan-y"
       shadow-intensity="1"
       environment-image="neutral"
-      orientation="70deg 0deg 0deg"
+      orientation="0deg 0deg 0deg"
+      camera-orbit="0deg 75deg 105%"
+      camera-target="0m 0.8m 0m"
       scale="2 2 2"
     >
       <button id="arBtn" slot="ar-button">Ver en AR</button>

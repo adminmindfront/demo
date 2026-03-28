@@ -63,7 +63,12 @@
         object-fit: cover !important;
       }
 
+      #container video {
+        z-index: 1 !important;
+      }
+
       #container canvas {
+        z-index: 2 !important;
         background: transparent !important;
       }
 
@@ -86,6 +91,12 @@
         color: white;
         text-align: center;
         backdrop-filter: blur(8px);
+      }
+
+      .message.is-hidden,
+      .frame.is-hidden,
+      .status-pill.is-hidden {
+        display: none !important;
       }
 
       .message strong {
@@ -181,7 +192,7 @@
         <span id="messageText">Apunta al target del pabellon "El desierto y su pasado".</span>
       </div>
       <div class="frame" aria-hidden="true"></div>
-      <div class="status-pill" id="targetStatus">Target detectado</div>
+      <div class="status-pill is-hidden" id="targetStatus"></div>
       <div class="controls">
         <button id="stampButton" class="stamp-button" type="button">
           Obtener Sello
@@ -201,8 +212,10 @@
 
       const container = document.querySelector("#container");
       const messageText = document.querySelector("#messageText");
+      const message = document.querySelector("#message");
       const targetStatus = document.querySelector("#targetStatus");
       const stampButton = document.querySelector("#stampButton");
+      const frame = document.querySelector(".frame");
 
       const clock = new THREE.Clock();
       const dinoAudio = new Audio(AUDIO_URL);
@@ -217,6 +230,19 @@
 
       function setMessage(text) {
         messageText.textContent = text;
+      }
+
+      function setScanningState(found) {
+        if (found) {
+          message.classList.add("is-hidden");
+          frame.classList.add("is-hidden");
+          targetStatus.classList.add("is-hidden");
+          return;
+        }
+
+        message.classList.remove("is-hidden");
+        frame.classList.remove("is-hidden");
+        targetStatus.classList.add("is-hidden");
       }
 
       async function addFloatingImage(anchor, modelRoot) {
@@ -288,7 +314,7 @@
         });
 
         ({ renderer, scene, camera } = mindarThree);
-        renderer.setClearAlpha(0);
+        renderer.setClearColor(0x000000, 0);
 
         scene.add(new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5));
 
@@ -299,21 +325,21 @@
         const anchor = mindarThree.addAnchor(0);
 
         anchor.onTargetFound = () => {
-          targetStatus.classList.add("is-visible");
           stampButton.classList.add("is-visible");
-          setMessage("Target detectado. Ya puedes obtener tu sello.");
+          setScanningState(true);
           dinoAudio.play().catch(() => {});
         };
 
         anchor.onTargetLost = () => {
-          targetStatus.classList.remove("is-visible");
           stampButton.classList.remove("is-visible");
+          setScanningState(false);
           setMessage("Apunta nuevamente a la imagen target.");
           dinoAudio.pause();
         };
 
         await buildModel(anchor);
         await mindarThree.start();
+        setScanningState(false);
 
         renderer.setAnimationLoop(() => {
           const delta = clock.getDelta();
@@ -343,6 +369,11 @@
       window.addEventListener("beforeunload", stopAR);
       startAR().catch((error) => {
         console.error(error);
+        if (error?.name === "NotReadableError") {
+          setMessage("La camara esta en uso por otra aplicacion o pestaña. Cierra la otra camara e intenta de nuevo.");
+          return;
+        }
+
         setMessage("No se pudo iniciar la experiencia AR. Revisa permisos de camara.");
       });
     </script>

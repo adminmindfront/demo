@@ -592,20 +592,12 @@ function renderPassportView() {
 function renderPhotoView() {
   return `
     <section class="view view--photo">
-      <div class="view-headline">
-        <p class="eyebrow">Recuerdo de visita</p>
-        <h2>Foto MUDE</h2>
-        <p>
-          Toma una foto con marco del museo y enviala a tu correo sin salir de la app.
-        </p>
-      </div>
-
       <div class="experience-card experience-card--photo">
         <iframe
           class="experience-frame experience-frame--photo"
           src="${buildPhotoBoothUrl()}"
           title="Cabina de foto MUDE"
-          allow="camera *; microphone *"
+          allow="camera; microphone"
         ></iframe>
       </div>
     </section>
@@ -864,7 +856,7 @@ function renderARExperienceModal() {
           class="experience-frame"
           src="./ar-scanner.html"
           title="Escaner AR MUDE"
-          allow="camera *; xr-spatial-tracking *; fullscreen *"
+          allow="camera; xr-spatial-tracking; fullscreen"
         ></iframe>
       </section>
     </div>
@@ -891,7 +883,7 @@ function renderModelViewerModal() {
           class="experience-frame"
           src="./ar-viewer.html"
           title="Visor 3D y AR MUDE"
-          allow="camera *; xr-spatial-tracking *; fullscreen *"
+          allow="camera; xr-spatial-tracking; fullscreen"
         ></iframe>
       </section>
     </div>

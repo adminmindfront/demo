@@ -42,12 +42,16 @@
 
       .photo-app {
         min-height: 100vh;
-        padding: 1rem;
+        min-height: 100svh;
+        height: 100vh;
+        height: 100svh;
+        padding: 0.8rem;
         display: grid;
-        grid-template-rows: auto auto 1fr auto;
-        gap: 0.9rem;
+        grid-template-rows: auto auto minmax(0, 1fr) auto auto auto;
+        gap: 0.55rem;
         max-width: 54rem;
         margin: 0 auto;
+        overflow: hidden;
       }
 
       .title,
@@ -59,26 +63,36 @@
 
       .title {
         font-family: "Cormorant Garamond", serif;
-        font-size: 2.2rem;
+        font-size: 1.8rem;
         color: var(--earth-600);
         text-align: center;
+        line-height: 0.95;
       }
 
       .subtitle {
         text-align: center;
         color: var(--stone-500);
-        line-height: 1.6;
+        line-height: 1.35;
+        font-size: 0.9rem;
       }
 
       .stage {
         position: relative;
         width: 100%;
-        aspect-ratio: 16 / 9;
+        max-height: 38svh;
+        aspect-ratio: 16 / 8.4;
         border-radius: 1.6rem;
         overflow: hidden;
         background: #000;
         border: 1px solid rgba(75, 64, 54, 0.1);
         box-shadow: 0 20px 40px rgba(43, 26, 15, 0.14);
+      }
+
+      .stage.is-vertical {
+        max-width: min(100%, 18rem);
+        max-height: 38svh;
+        aspect-ratio: 9 / 16;
+        margin: 0 auto;
       }
 
       .stage video,
@@ -101,35 +115,47 @@
         display: none;
       }
 
-      .stage .hint {
-        position: absolute;
-        left: 50%;
-        bottom: 0.9rem;
-        transform: translateX(-50%);
-        z-index: 3;
-        padding: 0.45rem 0.8rem;
-        border-radius: 999px;
-        color: white;
-        background: rgba(20, 14, 10, 0.56);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        backdrop-filter: blur(8px);
-        font-size: 0.78rem;
-      }
-
       .controls {
         display: grid;
-        gap: 0.75rem;
+        gap: 0.55rem;
         max-width: 22rem;
         margin: 0 auto;
+      }
+
+      .orientation-toggle {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.55rem;
+      }
+
+      .orientation-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55rem;
+        background: rgba(255, 255, 255, 0.92);
+        color: var(--stone-700);
+        box-shadow: 0 10px 18px rgba(43, 26, 15, 0.08);
+      }
+
+      .orientation-btn.is-active {
+        color: white;
+        background: linear-gradient(135deg, var(--earth-600), var(--earth-700));
+      }
+
+      .orientation-btn svg {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
       }
 
       .mail-box {
         background: rgba(255, 252, 247, 0.88);
         border: 1px solid rgba(75, 64, 54, 0.08);
         border-radius: 1.2rem;
-        padding: 1rem;
+        padding: 0.85rem;
         display: grid;
-        gap: 0.9rem;
+        gap: 0.65rem;
         box-shadow: 0 12px 24px rgba(43, 26, 15, 0.06);
       }
 
@@ -174,8 +200,8 @@
       button {
         border: 0;
         border-radius: 999px;
-        padding: 0.95rem 1.1rem;
-        font-size: 0.95rem;
+        padding: 0.8rem 1rem;
+        font-size: 0.9rem;
         font-weight: 800;
         cursor: pointer;
       }
@@ -222,7 +248,7 @@
       .footer {
         text-align: center;
         color: var(--stone-500);
-        font-size: 0.78rem;
+        font-size: 0.72rem;
       }
 
       .flash {
@@ -271,7 +297,23 @@
         }
 
         .photo-app {
-          padding: 0.85rem;
+          padding: 0.7rem;
+        }
+
+        .title {
+          font-size: 1.55rem;
+        }
+
+        .subtitle {
+          font-size: 0.82rem;
+        }
+
+        .stage {
+          max-height: 32svh;
+        }
+
+        .stage.is-vertical {
+          max-height: 32svh;
         }
       }
     </style>
@@ -288,10 +330,27 @@
         <img id="preview" class="preview" alt="Foto capturada" />
         <img id="frame" class="frame" src="./assets/photo/frame/mude.png" alt="Marco MUDE" />
         <div id="flash" class="flash"></div>
-        <div class="hint">Marco horizontal 16:9</div>
       </section>
 
       <section class="controls">
+        <div class="orientation-toggle">
+          <button id="horizontalBtn" class="orientation-btn is-active" type="button" aria-pressed="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="7" width="18" height="10" rx="2"></rect>
+              <path d="M7 5v2"></path>
+              <path d="M17 17v2"></path>
+            </svg>
+            Horizontal
+          </button>
+          <button id="verticalBtn" class="orientation-btn" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="7" y="3" width="10" height="18" rx="2"></rect>
+              <path d="M11 5h2"></path>
+              <path d="M11 19h2"></path>
+            </svg>
+            Vertical
+          </button>
+        </div>
         <button id="startBtn" class="btn-start" type="button">Activar camara</button>
         <button id="captureBtn" class="btn-capture is-hidden" type="button">Tomar foto</button>
         <button id="continueBtn" class="btn-continue is-hidden" type="button">Continuar</button>
@@ -332,9 +391,12 @@
       const frame = document.querySelector("#frame");
       const flash = document.querySelector("#flash");
       const canvas = document.querySelector("#canvas");
+      const stage = document.querySelector(".stage");
       const statusEl = document.querySelector("#status");
       const mailBox = document.querySelector("#mailBox");
 
+      const horizontalBtn = document.querySelector("#horizontalBtn");
+      const verticalBtn = document.querySelector("#verticalBtn");
       const startBtn = document.querySelector("#startBtn");
       const captureBtn = document.querySelector("#captureBtn");
       const continueBtn = document.querySelector("#continueBtn");
@@ -346,6 +408,7 @@
 
       let stream = null;
       let capturedDataUrl = "";
+      let orientation = "horizontal";
 
       nameInput.value = query.get("name") || "";
       emailInput.value = query.get("email") || "";
@@ -366,11 +429,11 @@
       }
 
       function isValidEmail(value) {
-        return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
       }
 
       function isValidPhone(value) {
-        const digits = value.replace(/\\D/g, "");
+        const digits = value.replace(/\D/g, "");
         return digits.length >= 8;
       }
 
@@ -384,6 +447,41 @@
 
       function syncSendState() {
         sendBtn.disabled = !(capturedDataUrl && hasValidContactData());
+      }
+
+      function updateOrientationUI() {
+        const isVertical = orientation === "vertical";
+        stage.classList.toggle("is-vertical", isVertical);
+        frame.src = isVertical
+          ? "./assets/photo/frame/mudev.png"
+          : "./assets/photo/frame/mude.png";
+        frame.alt = isVertical ? "Marco MUDE vertical" : "Marco MUDE horizontal";
+        horizontalBtn.classList.toggle("is-active", !isVertical);
+        verticalBtn.classList.toggle("is-active", isVertical);
+        horizontalBtn.setAttribute("aria-pressed", String(!isVertical));
+        verticalBtn.setAttribute("aria-pressed", String(isVertical));
+      }
+
+      function switchOrientation(nextOrientation) {
+        if (orientation === nextOrientation) {
+          return;
+        }
+
+        orientation = nextOrientation;
+        updateOrientationUI();
+
+        if (capturedDataUrl) {
+          capturedDataUrl = "";
+          preview.src = "";
+          preview.style.display = "none";
+          preview.classList.remove("show");
+          video.style.display = "block";
+          mailBox.classList.add("is-hidden");
+          againBtn.classList.add("is-hidden");
+          showStep(stream ? "capture" : "start");
+          setStatus("Formato actualizado. Toma una nueva foto.");
+          syncSendState();
+        }
       }
 
       async function startCamera() {
@@ -426,8 +524,8 @@
         }
 
         const ctx = canvas.getContext("2d");
-        canvas.width = 1920;
-        canvas.height = 1080;
+        canvas.width = orientation === "vertical" ? 1080 : 1920;
+        canvas.height = orientation === "vertical" ? 1920 : 1080;
 
         drawCover(video.videoWidth, video.videoHeight, canvas.width, canvas.height, (dx, dy, dw, dh) => {
           ctx.drawImage(video, dx, dy, dw, dh);
@@ -489,11 +587,11 @@
           `Correo registrado: ${email}`,
           "",
           "Esperamos verte pronto.",
-        ].join("\\n");
+        ].join("\n");
       }
 
       function dataUrlToBase64(dataUrl) {
-        return dataUrl.replace(/^data:image\\/[a-zA-Z0-9+.-]+;base64,/, "");
+        return dataUrl.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, "");
       }
 
       async function sendPhoto() {
@@ -555,8 +653,11 @@
 
       showStep("start");
       setStatus("Activa la camara para comenzar.");
+      updateOrientationUI();
       syncSendState();
 
+      horizontalBtn.addEventListener("click", () => switchOrientation("horizontal"));
+      verticalBtn.addEventListener("click", () => switchOrientation("vertical"));
       startBtn.addEventListener("click", startCamera);
       captureBtn.addEventListener("click", capturePhoto);
       continueBtn.addEventListener("click", continueToForm);
