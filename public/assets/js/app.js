@@ -351,6 +351,19 @@ function renderAuthScreen() {
           </p>
         </div>
 
+        <button class="google-button" data-action="google-login" ${state.isAuthSubmitting ? "disabled" : ""}>
+          <span class="google-button__icon">
+            <img src="./assets/img/google.webp" alt="Google" />
+          </span>
+          Iniciar sesion con Google
+        </button>
+
+        <div class="auth-divider auth-divider--tight">
+          <span></span>
+          <p>o usa otra opcion</p>
+          <span></span>
+        </div>
+
         <div class="auth-switch">
           <button class="auth-switch__item ${!isSignup ? "is-active" : ""}" data-action="set-auth-mode" data-mode="login">
             Iniciar sesion
@@ -401,17 +414,6 @@ function renderAuthScreen() {
             }
           </button>
         </form>
-
-        <div class="auth-divider">
-          <span></span>
-          <p>o continua con</p>
-          <span></span>
-        </div>
-
-        <button class="google-button" data-action="google-login" ${state.isAuthSubmitting ? "disabled" : ""}>
-          <span class="google-button__icon">G</span>
-          Iniciar sesion con Google
-        </button>
       </div>
     </section>
   `;
