@@ -41,6 +41,9 @@ const state = {
   showCheckout: false,
   showQRModal: null,
   showARScanner: null,
+  showARExperience: null,
+  showModelViewer: null,
+  showStampCelebration: null,
   arScanned: false,
   isProcessingPayment: false,
   user: null,
@@ -91,6 +94,20 @@ function getCartTotal() {
   return state.cart.reduce((sum, item) => sum + item.price, 0);
 }
 
+function buildPhotoBoothUrl() {
+  const params = new URLSearchParams();
+
+  if (state.user?.email) {
+    params.set("email", state.user.email);
+  }
+
+  if (state.user?.displayName) {
+    params.set("name", state.user.displayName);
+  }
+
+  return `./photo-booth.html?${params.toString()}`;
+}
+
 function resetInteractiveState() {
   clearTimeout(timers.arScanner);
   clearTimeout(timers.payment);
@@ -101,6 +118,9 @@ function resetInteractiveState() {
   state.showCheckout = false;
   state.showQRModal = null;
   state.showARScanner = null;
+  state.showARExperience = null;
+  state.showModelViewer = null;
+  state.showStampCelebration = null;
   state.arScanned = false;
   state.isProcessingPayment = false;
 }
@@ -294,6 +314,9 @@ function renderApp() {
       </main>
       ${renderBottomNav()}
       ${renderARScannerModal()}
+      ${renderARExperienceModal()}
+      ${renderModelViewerModal()}
+      ${renderStampCelebrationModal()}
       ${renderCheckoutModal()}
       ${renderQRCodeModal()}
     </div>
@@ -453,6 +476,8 @@ function renderCurrentView() {
   switch (state.activeTab) {
     case "pavilions":
       return renderPavilionsView();
+    case "photo":
+      return renderPhotoView();
     case "shop":
       return renderShopView();
     case "ai":
@@ -527,15 +552,19 @@ function renderPassportView() {
         <div class="stamp-grid">
           ${PAVILIONS.map((pavilion) => {
             const unlocked = state.unlockedStamps.includes(pavilion.id);
+            const isInteractive = unlocked && pavilion.id === 1;
             return `
-              <article class="stamp-card ${unlocked ? "is-unlocked" : ""}">
+              <article
+                class="stamp-card ${unlocked ? "is-unlocked" : ""} ${isInteractive ? "is-interactive" : ""}"
+                ${isInteractive ? `data-action="open-stamp-ar" data-pavilion-id="${pavilion.id}"` : ""}
+              >
                 <div class="stamp-card__icon stamp-card__icon--${pavilion.color}">
                   ${pavilion.icon}
                 </div>
                 <p class="stamp-card__name">${escapeHtml(pavilion.name)}</p>
                 ${
                   unlocked
-                    ? '<p class="stamp-card__status">Desbloqueado</p>'
+                    ? `<p class="stamp-card__status">${isInteractive ? "Ver en AR" : "Desbloqueado"}</p>`
                     : '<p class="stamp-card__status stamp-card__status--muted">Pendiente</p>'
                 }
               </article>
@@ -556,6 +585,29 @@ function renderPassportView() {
       </section>
 
       ${purchasesSection}
+    </section>
+  `;
+}
+
+function renderPhotoView() {
+  return `
+    <section class="view view--photo">
+      <div class="view-headline">
+        <p class="eyebrow">Recuerdo de visita</p>
+        <h2>Foto MUDE</h2>
+        <p>
+          Toma una foto con marco del museo y enviala a tu correo sin salir de la app.
+        </p>
+      </div>
+
+      <div class="experience-card experience-card--photo">
+        <iframe
+          class="experience-frame experience-frame--photo"
+          src="${buildPhotoBoothUrl()}"
+          title="Cabina de foto MUDE"
+          allow="camera *; microphone *"
+        ></iframe>
+      </div>
     </section>
   `;
 }
@@ -717,6 +769,7 @@ function renderBottomNav() {
   const tabs = [
     { id: "passport", label: "Pasaporte", icon: "user" },
     { id: "pavilions", label: "Explorar", icon: "map" },
+    { id: "photo", label: "Foto", icon: "camera" },
     { id: "shop", label: "Tienda", icon: "ticket" },
     { id: "ai", label: "Guia IA", icon: "message-circle" },
   ];
@@ -781,11 +834,89 @@ function renderARScannerModal() {
                   </div>
                   <h3>Sello desbloqueado</h3>
                   <p>Capturaste la experiencia de ${escapeHtml(state.showARScanner.name)}.</p>
-                  <button class="primary-button" data-action="close-ar">Continuar expedicion</button>
+                  <button class="primary-button" data-action="view-passport-after-scan">Ver mi pasaporte</button>
                 </div>
               </div>
             `
         }
+      </section>
+    </div>
+  `;
+}
+
+function renderARExperienceModal() {
+  if (!state.showARExperience) {
+    return "";
+  }
+
+  return `
+    <div class="modal-overlay modal-overlay--experience" data-backdrop="ar-experience">
+      <section class="experience-modal animate-fade-in">
+        <button
+          class="icon-button icon-button--overlay scanner-modal__close"
+          data-action="close-ar-experience"
+          aria-label="Cerrar experiencia AR"
+        >
+          ${renderIcon("x", { size: 20 })}
+        </button>
+
+        <iframe
+          class="experience-frame"
+          src="./ar-scanner.html"
+          title="Escaner AR MUDE"
+          allow="camera *; xr-spatial-tracking *; fullscreen *"
+        ></iframe>
+      </section>
+    </div>
+  `;
+}
+
+function renderModelViewerModal() {
+  if (!state.showModelViewer) {
+    return "";
+  }
+
+  return `
+    <div class="modal-overlay modal-overlay--experience" data-backdrop="model-viewer">
+      <section class="experience-modal animate-fade-in">
+        <button
+          class="icon-button icon-button--overlay scanner-modal__close"
+          data-action="close-model-viewer"
+          aria-label="Cerrar visor AR"
+        >
+          ${renderIcon("x", { size: 20 })}
+        </button>
+
+        <iframe
+          class="experience-frame"
+          src="./ar-viewer.html"
+          title="Visor 3D y AR MUDE"
+          allow="camera *; xr-spatial-tracking *; fullscreen *"
+        ></iframe>
+      </section>
+    </div>
+  `;
+}
+
+function renderStampCelebrationModal() {
+  if (!state.showStampCelebration) {
+    return "";
+  }
+
+  return `
+    <div class="modal-overlay modal-overlay--scanner" data-backdrop="stamp-celebration">
+      <section class="scanner-modal animate-fade-in">
+        <div class="scanner-success">
+          <div class="scanner-success__emoji">${state.showStampCelebration.icon}</div>
+          <div class="scanner-success__panel">
+            <div class="scanner-success__check">
+              ${renderIcon("check-circle", { size: 28 })}
+            </div>
+            <h3>Sello desbloqueado</h3>
+            <p>Capturaste la experiencia de ${escapeHtml(state.showStampCelebration.name)}.</p>
+            <button class="primary-button" data-action="go-passport">Ver mi pasaporte</button>
+          </div>
+        </div>
       </section>
     </div>
   `;
@@ -994,11 +1125,30 @@ function handleAction(action, dataset) {
     case "logout":
       handleLogout();
       return;
+    case "open-stamp-ar":
+      state.showModelViewer = getPavilionById(dataset.pavilionId);
+      renderApp();
+      return;
     case "open-ar":
       openArScanner(dataset.pavilionId);
       return;
     case "close-ar":
       closeArScanner();
+      return;
+    case "close-ar-experience":
+      state.showARExperience = null;
+      renderApp();
+      return;
+    case "close-model-viewer":
+      state.showModelViewer = null;
+      renderApp();
+      return;
+    case "go-passport":
+    case "view-passport-after-scan":
+      state.showARScanner = null;
+      state.showStampCelebration = null;
+      state.activeTab = "passport";
+      renderApp();
       return;
     case "add-to-cart": {
       const product = getProductById(dataset.productId);
@@ -1047,6 +1197,12 @@ function handleAction(action, dataset) {
 function openArScanner(pavilionId) {
   const pavilion = getPavilionById(pavilionId);
   if (!pavilion) {
+    return;
+  }
+
+  if (pavilion.id === 1) {
+    state.showARExperience = pavilion;
+    renderApp();
     return;
   }
 
@@ -1171,6 +1327,21 @@ document.addEventListener("click", (event) => {
     closeArScanner();
   }
 
+  if (backdrop === "ar-experience") {
+    state.showARExperience = null;
+    renderApp();
+  }
+
+  if (backdrop === "model-viewer") {
+    state.showModelViewer = null;
+    renderApp();
+  }
+
+  if (backdrop === "stamp-celebration") {
+    state.showStampCelebration = null;
+    renderApp();
+  }
+
   if (backdrop === "checkout" && !state.isProcessingPayment) {
     state.showCheckout = false;
     renderApp();
@@ -1178,6 +1349,28 @@ document.addEventListener("click", (event) => {
 
   if (backdrop === "qr") {
     state.showQRModal = null;
+    renderApp();
+  }
+});
+
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin) {
+    return;
+  }
+
+  if (event.data?.type === "mude-ar-stamp-earned") {
+    const pavilion = getPavilionById(event.data.pavilionId);
+    if (!pavilion) {
+      return;
+    }
+
+    if (!state.unlockedStamps.includes(pavilion.id)) {
+      state.unlockedStamps = [...state.unlockedStamps, pavilion.id];
+      persistUserData();
+    }
+
+    state.showARExperience = null;
+    state.showStampCelebration = pavilion;
     renderApp();
   }
 });

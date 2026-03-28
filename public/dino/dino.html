@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Dino AR sin target</title>
+
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #000;
+      font-family: Arial, sans-serif;
+    }
+
+    model-viewer {
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(circle at 50% 30%, #1a1a1a, #000 70%);
+      --poster-color: transparent;
+    }
+
+    #msg {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 20;
+      color: #fff;
+      background: rgba(0, 0, 0, 0.55);
+      padding: 12px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 14px;
+      backdrop-filter: blur(6px);
+    }
+
+    #arBtn {
+      border: 0;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 15px;
+      background: #fff;
+      color: #111;
+      cursor: pointer;
+    }
+
+    /* Letrero sobre el dinosaurio */
+    .mude-hotspot {
+      pointer-events: none;
+      transform: translate(-50%, -100%);
+    }
+
+    .mude-hotspot img {
+      width: 140px;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div id="msg">Toca “Iniciar AR” para colocar el dinosaurio sobre piso o mesa, sin imagen target.</div>
+
+  <model-viewer
+    id="viewer"
+    src="./models/modelo.glb"
+    ios-src="./models/modelo2.usdz"
+    ar
+    ar-modes="webxr scene-viewer quick-look"
+    ar-placement="floor"
+    camera-controls
+    touch-action="pan-y"
+    shadow-intensity="1"
+    environment-image="neutral"
+    orientation="70deg 0deg 0deg"
+    scale="2 2 2"
+  >
+    <button id="arBtn" slot="ar-button">Iniciar AR</button>
+    <!-- Letrero flotante sobre el modelo -->
+    <div slot="hotspot-mude" data-position="0 1.8 0" data-normal="0 1 0" class="mude-hotspot">
+      <img src="./images/mude.png" alt="MUDE" />
+    </div>
+  </model-viewer>
+
+  <script>
+    const msg = document.querySelector("#msg");
+    const viewer = document.querySelector("#viewer");
+    const arBtn = document.querySelector("#arBtn");
+    const dinoAudio = new Audio("./audio/audio.mp3");
+    dinoAudio.loop = true;
+    dinoAudio.preload = "auto";
+
+    function setMessage(text) {
+      msg.textContent = text;
+    }
+
+    // Intenta reproducir audio de forma segura (respetando restricciones de autoplay).
+    function playAudioSafe() {
+      dinoAudio.play().catch(() => {});
+    }
+
+    function isIOS() {
+      return /iPhone|iPad|iPod/i.test(navigator.userAgent) ||
+        (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    }
+
+    // Nota: iOS Quick Look requiere USDZ para compatibilidad real en iPhone/iPad.
+    async function validateIOSAsset() {
+      if (!isIOS()) return;
+      try {
+        const res = await fetch("./models/modelo2.usdz", { method: "HEAD" });
+        if (!res.ok) {
+          setMessage("En iPhone/iPad necesitas ./models/modelo2.usdz para abrir AR (Quick Look). En Android funciona con modelo.glb.");
+        }
+      } catch (_) {
+        setMessage("No se pudo verificar modelo2.usdz. Para iOS, agrega ./models/modelo2.usdz.");
+      }
+    }
+
+    // Si audio.mp3 no existe, usamos dino.mp3 automáticamente.
+    async function resolveAudioSource() {
+      try {
+        const preferred = await fetch("./audio/audio.mp3", { method: "HEAD" });
+        if (preferred.ok) {
+          dinoAudio.src = "./audio/audio.mp3";
+          return;
+        }
+      } catch (_) {}
+
+      dinoAudio.src = "./audio/dino.mp3";
+    }
+
+    viewer.addEventListener("ar-status", (event) => {
+      const status = event.detail.status;
+      if (status === "session-started") {
+        setMessage("AR activa. Coloca el dinosaurio en tu entorno.");
+        playAudioSafe();
+      } else if (status === "not-presenting") {
+        setMessage("Toca “Iniciar AR” para volver a colocar el dinosaurio.");
+        dinoAudio.pause();
+        dinoAudio.currentTime = 0;
+      } else if (status === "failed") {
+        setMessage("No se pudo iniciar AR. Revisa permisos de cámara y compatibilidad.");
+        dinoAudio.pause();
+        dinoAudio.currentTime = 0;
+      }
+    });
+
+    // El click del botón AR también cuenta como gesto del usuario para habilitar audio.
+    arBtn.addEventListener("click", () => {
+      playAudioSafe();
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        dinoAudio.pause();
+      }
+    });
+
+    resolveAudioSource();
+    validateIOSAsset();
+  </script>
+</body>
+</html>

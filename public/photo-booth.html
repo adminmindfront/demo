@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>Cabina de Foto MUDE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --earth-600: #8b5a2b;
+        --earth-700: #6b4421;
+        --stone-50: #f7f5f2;
+        --stone-100: #ece7e1;
+        --stone-500: #857568;
+        --stone-700: #4b4036;
+        --green-500: #2f9e58;
+        --red-500: #d84f44;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+        font-family: "Manrope", sans-serif;
+        color: var(--stone-700);
+        background:
+          radial-gradient(circle at top, rgba(209, 107, 36, 0.14), transparent 28%),
+          linear-gradient(180deg, #fbf6ef 0%, #f2e8dc 100%);
+      }
+
+      .photo-app {
+        min-height: 100vh;
+        padding: 1rem;
+        display: grid;
+        grid-template-rows: auto auto 1fr auto;
+        gap: 0.9rem;
+        max-width: 54rem;
+        margin: 0 auto;
+      }
+
+      .title,
+      .subtitle,
+      .status,
+      .footer {
+        margin: 0;
+      }
+
+      .title {
+        font-family: "Cormorant Garamond", serif;
+        font-size: 2.2rem;
+        color: var(--earth-600);
+        text-align: center;
+      }
+
+      .subtitle {
+        text-align: center;
+        color: var(--stone-500);
+        line-height: 1.6;
+      }
+
+      .stage {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border-radius: 1.6rem;
+        overflow: hidden;
+        background: #000;
+        border: 1px solid rgba(75, 64, 54, 0.1);
+        box-shadow: 0 20px 40px rgba(43, 26, 15, 0.14);
+      }
+
+      .stage video,
+      .stage img.preview,
+      .stage img.frame {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .stage img.frame {
+        z-index: 2;
+        pointer-events: none;
+      }
+
+      .stage img.preview {
+        z-index: 1;
+        display: none;
+      }
+
+      .stage .hint {
+        position: absolute;
+        left: 50%;
+        bottom: 0.9rem;
+        transform: translateX(-50%);
+        z-index: 3;
+        padding: 0.45rem 0.8rem;
+        border-radius: 999px;
+        color: white;
+        background: rgba(20, 14, 10, 0.56);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(8px);
+        font-size: 0.78rem;
+      }
+
+      .controls {
+        display: grid;
+        gap: 0.75rem;
+        max-width: 22rem;
+        margin: 0 auto;
+      }
+
+      .mail-box {
+        background: rgba(255, 252, 247, 0.88);
+        border: 1px solid rgba(75, 64, 54, 0.08);
+        border-radius: 1.2rem;
+        padding: 1rem;
+        display: grid;
+        gap: 0.9rem;
+        box-shadow: 0 12px 24px rgba(43, 26, 15, 0.06);
+      }
+
+      .field-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.75rem;
+      }
+
+      .field {
+        display: grid;
+        gap: 0.4rem;
+      }
+
+      .field.full {
+        grid-column: 1 / -1;
+      }
+
+      .is-hidden {
+        display: none !important;
+      }
+
+      label {
+        font-size: 0.78rem;
+        color: var(--stone-500);
+        font-weight: 700;
+      }
+
+      input[type="email"],
+      input[type="text"],
+      input[type="tel"] {
+        width: 100%;
+        border: 1px solid rgba(75, 64, 54, 0.14);
+        background: white;
+        color: var(--stone-700);
+        border-radius: 1rem;
+        padding: 0.85rem 0.95rem;
+        font-size: 1rem;
+        outline: none;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 0.95rem 1.1rem;
+        font-size: 0.95rem;
+        font-weight: 800;
+        cursor: pointer;
+      }
+
+      button:disabled {
+        opacity: 0.65;
+        cursor: not-allowed;
+      }
+
+      .btn-start,
+      .btn-retake,
+      .btn-again {
+        background: white;
+        color: var(--stone-700);
+        box-shadow: 0 10px 18px rgba(43, 26, 15, 0.08);
+      }
+
+      .btn-capture {
+        background: linear-gradient(135deg, #f39a43, #d16b24);
+        color: #24170d;
+      }
+
+      .btn-send,
+      .btn-continue {
+        background: linear-gradient(135deg, var(--green-500), #1d8d49);
+        color: white;
+      }
+
+      .status {
+        min-height: 1.4rem;
+        color: var(--stone-500);
+        text-align: center;
+        line-height: 1.5;
+      }
+
+      .status.error {
+        color: var(--red-500);
+      }
+
+      .status.ok {
+        color: var(--green-500);
+      }
+
+      .footer {
+        text-align: center;
+        color: var(--stone-500);
+        font-size: 0.78rem;
+      }
+
+      .flash {
+        position: absolute;
+        inset: 0;
+        background: #fff;
+        opacity: 0;
+        pointer-events: none;
+        z-index: 5;
+      }
+
+      .flash.active {
+        animation: camFlash 260ms ease-out;
+      }
+
+      .stage img.preview.show {
+        display: block;
+        animation: shotZoom 520ms cubic-bezier(0.18, 0.7, 0.2, 1);
+        transform-origin: center center;
+      }
+
+      @keyframes camFlash {
+        0% { opacity: 0; }
+        25% { opacity: 0.95; }
+        100% { opacity: 0; }
+      }
+
+      @keyframes shotZoom {
+        0% {
+          transform: scale(0.88);
+          opacity: 0.2;
+        }
+        65% {
+          transform: scale(1.06);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+
+      @media (max-width: 700px) {
+        .field-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .photo-app {
+          padding: 0.85rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="photo-app">
+      <h1 class="title">Foto MUDE</h1>
+      <p class="subtitle">
+        Toma tu foto con el marco del museo y enviala por correo.
+      </p>
+
+      <section class="stage">
+        <video id="video" autoplay playsinline muted></video>
+        <img id="preview" class="preview" alt="Foto capturada" />
+        <img id="frame" class="frame" src="./assets/photo/frame/mude.png" alt="Marco MUDE" />
+        <div id="flash" class="flash"></div>
+        <div class="hint">Marco horizontal 16:9</div>
+      </section>
+
+      <section class="controls">
+        <button id="startBtn" class="btn-start" type="button">Activar camara</button>
+        <button id="captureBtn" class="btn-capture is-hidden" type="button">Tomar foto</button>
+        <button id="continueBtn" class="btn-continue is-hidden" type="button">Continuar</button>
+      </section>
+
+      <p id="status" class="status"></p>
+
+      <section id="mailBox" class="mail-box is-hidden">
+        <div class="field-grid">
+          <div class="field">
+            <label for="nameInput">Nombre</label>
+            <input id="nameInput" type="text" placeholder="Nombre del visitante" autocomplete="name" />
+          </div>
+          <div class="field">
+            <label for="phoneInput">Telefono</label>
+            <input id="phoneInput" type="tel" placeholder="8441234567" inputmode="tel" autocomplete="tel" />
+          </div>
+          <div class="field full">
+            <label for="emailInput">Correo</label>
+            <input id="emailInput" type="email" placeholder="correo@ejemplo.com" autocomplete="email" />
+          </div>
+        </div>
+        <button id="sendBtn" class="btn-send" type="button" disabled>Enviar foto</button>
+        <button id="againBtn" class="btn-again is-hidden" type="button">Tomar otra</button>
+      </section>
+
+      <p class="footer">Museo del Desierto, Saltillo, Coahuila, Mexico.</p>
+    </main>
+
+    <canvas id="canvas" width="1920" height="1080" style="display:none;"></canvas>
+
+    <script>
+      const ENDPOINT_URL = "https://msj-573177942079.us-central1.run.app";
+      const query = new URLSearchParams(window.location.search);
+
+      const video = document.querySelector("#video");
+      const preview = document.querySelector("#preview");
+      const frame = document.querySelector("#frame");
+      const flash = document.querySelector("#flash");
+      const canvas = document.querySelector("#canvas");
+      const statusEl = document.querySelector("#status");
+      const mailBox = document.querySelector("#mailBox");
+
+      const startBtn = document.querySelector("#startBtn");
+      const captureBtn = document.querySelector("#captureBtn");
+      const continueBtn = document.querySelector("#continueBtn");
+      const sendBtn = document.querySelector("#sendBtn");
+      const againBtn = document.querySelector("#againBtn");
+      const nameInput = document.querySelector("#nameInput");
+      const phoneInput = document.querySelector("#phoneInput");
+      const emailInput = document.querySelector("#emailInput");
+
+      let stream = null;
+      let capturedDataUrl = "";
+
+      nameInput.value = query.get("name") || "";
+      emailInput.value = query.get("email") || "";
+
+      function setStatus(text, type = "") {
+        statusEl.textContent = text;
+        statusEl.className = "status" + (type ? " " + type : "");
+      }
+
+      function showStep(step) {
+        startBtn.classList.add("is-hidden");
+        captureBtn.classList.add("is-hidden");
+        continueBtn.classList.add("is-hidden");
+
+        if (step === "start") startBtn.classList.remove("is-hidden");
+        if (step === "capture") captureBtn.classList.remove("is-hidden");
+        if (step === "continue") continueBtn.classList.remove("is-hidden");
+      }
+
+      function isValidEmail(value) {
+        return /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(value);
+      }
+
+      function isValidPhone(value) {
+        const digits = value.replace(/\\D/g, "");
+        return digits.length >= 8;
+      }
+
+      function hasValidContactData() {
+        return (
+          !!nameInput.value.trim() &&
+          isValidPhone(phoneInput.value.trim()) &&
+          isValidEmail(emailInput.value.trim())
+        );
+      }
+
+      function syncSendState() {
+        sendBtn.disabled = !(capturedDataUrl && hasValidContactData());
+      }
+
+      async function startCamera() {
+        try {
+          setStatus("Solicitando permiso de camara...");
+          if (!stream) {
+            stream = await navigator.mediaDevices.getUserMedia({
+              video: {
+                facingMode: { ideal: "environment" },
+                width: { ideal: 1920 },
+                height: { ideal: 1080 },
+              },
+              audio: false,
+            });
+          }
+
+          video.srcObject = stream;
+          await video.play();
+          showStep("capture");
+          setStatus("Camara lista. Presiona 'Tomar foto'.");
+        } catch (error) {
+          console.error(error);
+          setStatus("No se pudo abrir la camara. Revisa permisos.", "error");
+        }
+      }
+
+      function drawCover(sourceWidth, sourceHeight, destWidth, destHeight, drawFn) {
+        const scale = Math.max(destWidth / sourceWidth, destHeight / sourceHeight);
+        const drawWidth = sourceWidth * scale;
+        const drawHeight = sourceHeight * scale;
+        const dx = (destWidth - drawWidth) / 2;
+        const dy = (destHeight - drawHeight) / 2;
+        drawFn(dx, dy, drawWidth, drawHeight);
+      }
+
+      function capturePhoto() {
+        if (!video.videoWidth || !video.videoHeight) {
+          setStatus("La camara aun no esta lista.", "error");
+          return;
+        }
+
+        const ctx = canvas.getContext("2d");
+        canvas.width = 1920;
+        canvas.height = 1080;
+
+        drawCover(video.videoWidth, video.videoHeight, canvas.width, canvas.height, (dx, dy, dw, dh) => {
+          ctx.drawImage(video, dx, dy, dw, dh);
+        });
+
+        ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
+
+        capturedDataUrl = canvas.toDataURL("image/jpeg", 0.92);
+        preview.src = capturedDataUrl;
+        preview.classList.remove("show");
+        preview.style.display = "block";
+        video.style.display = "none";
+        void preview.offsetWidth;
+        preview.classList.add("show");
+
+        flash.classList.remove("active");
+        void flash.offsetWidth;
+        flash.classList.add("active");
+
+        showStep("continue");
+        setStatus("Foto capturada. Continúa para enviarla.");
+      }
+
+      function continueToForm() {
+        if (!capturedDataUrl) {
+          setStatus("Primero toma una foto.", "error");
+          return;
+        }
+
+        continueBtn.classList.add("is-hidden");
+        mailBox.classList.remove("is-hidden");
+        syncSendState();
+        setStatus("Completa los datos para enviar la foto.");
+      }
+
+      function resetForAnotherPhoto() {
+        capturedDataUrl = "";
+        preview.src = "";
+        preview.style.display = "none";
+        preview.classList.remove("show");
+        video.style.display = "block";
+
+        mailBox.classList.add("is-hidden");
+        againBtn.classList.add("is-hidden");
+        sendBtn.disabled = true;
+        showStep(stream ? "capture" : "start");
+        setStatus(stream ? "Listo para otra foto." : "Activa la camara.");
+      }
+
+      function buildMudeMessage(name, phone, email) {
+        return [
+          `Hola ${name},`,
+          "",
+          "Gracias por tu visita al Museo del Desierto (MUDE).",
+          "",
+          "Te compartimos tu fotografia tomada en el museo.",
+          "",
+          `Telefono registrado: ${phone}`,
+          `Correo registrado: ${email}`,
+          "",
+          "Esperamos verte pronto.",
+        ].join("\\n");
+      }
+
+      function dataUrlToBase64(dataUrl) {
+        return dataUrl.replace(/^data:image\\/[a-zA-Z0-9+.-]+;base64,/, "");
+      }
+
+      async function sendPhoto() {
+        const name = nameInput.value.trim();
+        const phone = phoneInput.value.trim();
+        const email = emailInput.value.trim();
+
+        if (!name) {
+          setStatus("Ingresa el nombre.", "error");
+          return;
+        }
+
+        if (!isValidPhone(phone)) {
+          setStatus("Ingresa un telefono valido.", "error");
+          return;
+        }
+
+        if (!isValidEmail(email)) {
+          setStatus("Ingresa un correo valido.", "error");
+          return;
+        }
+
+        sendBtn.disabled = true;
+        setStatus("Enviando foto...");
+
+        try {
+          const response = await fetch(ENDPOINT_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name,
+              phone,
+              email,
+              subject: `Tu foto del MUDE, ${name}`,
+              message: buildMudeMessage(name, phone, email),
+              imageBase64: dataUrlToBase64(capturedDataUrl),
+              imageMimeType: "image/jpeg",
+              imageFilename: "foto-mude.jpg",
+            }),
+          });
+
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) {
+            throw new Error(data.message || "No se pudo enviar el correo.");
+          }
+
+          setStatus("Foto enviada correctamente por correo.", "ok");
+          againBtn.classList.remove("is-hidden");
+          window.parent.postMessage(
+            { type: "mude-photo-sent", email },
+            window.location.origin
+          );
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message || "Error al enviar la foto.", "error");
+          syncSendState();
+        }
+      }
+
+      showStep("start");
+      setStatus("Activa la camara para comenzar.");
+      syncSendState();
+
+      startBtn.addEventListener("click", startCamera);
+      captureBtn.addEventListener("click", capturePhoto);
+      continueBtn.addEventListener("click", continueToForm);
+      sendBtn.addEventListener("click", sendPhoto);
+      againBtn.addEventListener("click", resetForAnotherPhoto);
+      [nameInput, phoneInput, emailInput].forEach((input) => {
+        input.addEventListener("input", syncSendState);
+      });
+
+      window.addEventListener("beforeunload", () => {
+        if (stream) {
+          stream.getTracks().forEach((track) => track.stop());
+        }
+      });
+    </script>
+  </body>
+</html>

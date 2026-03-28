@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+  />
+  <title>AR Web</title>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/",
+      "mindar-image-three": "https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-three.prod.js"
+    }
+  }
+  </script>
+
+  <style>
+    html, body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+      background: transparent;
+    }
+
+    #container {
+      width: 100vw;
+      height: 100vh;
+      position: relative;
+      overflow: hidden;
+      background: transparent;
+    }
+
+    #container video {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover !important;
+      z-index: 1 !important;
+    }
+
+    #container canvas {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 2 !important;
+      background: transparent !important;
+    }
+
+    #msg {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 20;
+      color: white;
+      background: rgba(0, 0, 0, 0.55);
+      padding: 12px;
+      border-radius: 12px;
+      text-align: center;
+      font-size: 14px;
+      backdrop-filter: blur(6px);
+    }
+
+    #controls {
+      position: fixed;
+      bottom: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 15px;
+      background: white;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+  </style>
+</head>
+<body>
+  <div id="msg">Presiona “Iniciar AR” y apunta a tu imagen target.</div>
+
+  <div id="container"></div>
+
+  <div id="controls">
+    <button id="startBtn">Iniciar AR</button>
+    <button id="stopBtn">Detener</button>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+    import { MindARThree } from "mindar-image-three";
+
+    const TARGETS_URL = "./targets/targets.mind";
+    const MODEL_URL = "./models/modelo.glb";
+    const IMAGE_URL = "./images/mude.png";
+    const AUDIO_URL = "./audio/dino.mp3";
+
+    // TAMAÑO FINAL DEL MODELO
+    const TARGET_MODEL_SIZE = 2;
+
+    // LEVANTA LEVEMENTE EL MODELO SOBRE LA IMAGEN
+    const MODEL_Y_OFFSET = 0.003;
+
+    // ROTACIÓN DEL MODELO
+    const ROT_X = 70;
+    const ROT_Y = 0;
+    const ROT_Z = 0;
+
+    // AJUSTES DE LA IMAGEN FLOTANTE
+    // Qué tan grande será respecto a la altura del modelo
+    const LABEL_HEIGHT_FACTOR = 0.28;
+
+    // Separación vertical sobre el dinosaurio
+    const LABEL_GAP_FACTOR = 1;
+    // Empuje leve hacia la cámara para evitar que quede "dentro" del modelo
+    const LABEL_FRONT_FACTOR = 0.05;
+
+    const container = document.querySelector("#container");
+    const msg = document.querySelector("#msg");
+    const startBtn = document.querySelector("#startBtn");
+    const stopBtn = document.querySelector("#stopBtn");
+
+    let mindarThree = null;
+    let renderer = null;
+    let scene = null;
+    let camera = null;
+    let mixer = null;
+    let started = false;
+    let dinoAudio = null;
+
+    const clock = new THREE.Clock();
+
+    function setMessage(text) {
+      msg.textContent = text;
+    }
+
+    // Audio de rugidos: se controla con found/lost del target.
+    function setupAudio() {
+      if (dinoAudio) return;
+      dinoAudio = new Audio(AUDIO_URL);
+      dinoAudio.loop = true;
+      dinoAudio.preload = "auto";
+    }
+
+    async function addFloatingImage(anchor, model, camera) {
+      const textureLoader = new THREE.TextureLoader();
+      const texture = await textureLoader.loadAsync(IMAGE_URL);
+
+      const spriteMaterial = new THREE.SpriteMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+        // Evita que el sprite quede oculto detrás del modelo por z-buffer
+        depthTest: false
+      });
+
+      const sprite = new THREE.Sprite(spriteMaterial);
+      sprite.renderOrder = 999;
+      // Ancla el sprite por abajo para que desde ese punto crezca hacia arriba
+      sprite.center.set(0.5, 0);
+
+      // Calculamos el tamaño real del modelo ya colocado
+      model.updateMatrixWorld(true);
+      anchor.group.updateMatrixWorld(true);
+
+      const box = new THREE.Box3().setFromObject(model);
+      const size = box.getSize(new THREE.Vector3());
+      const center = box.getCenter(new THREE.Vector3());
+
+      const modelHeight = size.y || 1;
+      const labelHeight = modelHeight * LABEL_HEIGHT_FACTOR;
+
+      const imgWidth = texture.image?.width || 1;
+      const imgHeight = texture.image?.height || 1;
+      const aspect = imgWidth / imgHeight;
+
+      const labelWidth = labelHeight * aspect;
+
+      sprite.scale.set(labelWidth, labelHeight, 1);
+
+      // Posición en mundo: centrado arriba del dinosaurio
+      const labelWorldPos = new THREE.Vector3(
+        center.x,
+        box.max.y + (modelHeight * LABEL_GAP_FACTOR),
+        center.z
+      );
+
+      // Empuje suave hacia la cámara para dejarlo ligeramente al frente
+      const toCamera = new THREE.Vector3().subVectors(camera.position, labelWorldPos).normalize();
+      labelWorldPos.addScaledVector(toCamera, modelHeight * LABEL_FRONT_FACTOR);
+
+      // Conversión robusta de mundo -> local del anchor (clave para evitar offsets erróneos)
+      const labelLocalPos = anchor.group.worldToLocal(labelWorldPos.clone());
+      sprite.position.copy(labelLocalPos);
+
+      anchor.group.add(sprite);
+    }
+
+    async function buildGLB(anchor) {
+      const loader = new GLTFLoader();
+      const gltf = await loader.loadAsync(MODEL_URL);
+
+      const model = gltf.scene;
+
+      // Caja original del modelo
+      const originalBox = new THREE.Box3().setFromObject(model);
+      const originalSize = originalBox.getSize(new THREE.Vector3());
+      const maxDim = Math.max(originalSize.x, originalSize.y, originalSize.z) || 1;
+
+      // Escala automática
+      const scaleFactor = TARGET_MODEL_SIZE / maxDim;
+      model.scale.multiplyScalar(scaleFactor);
+
+      // --- Corrección de anclaje del modelo ---
+      // 1) Primero lo centramos y apoyamos en Y SIN rotación para evitar desplazamientos.
+      model.updateMatrixWorld(true);
+      const scaledBox = new THREE.Box3().setFromObject(model);
+      const scaledCenter = scaledBox.getCenter(new THREE.Vector3());
+
+      // Centrar base del modelo en el origen local del target
+      model.position.x -= scaledCenter.x;
+      model.position.z -= scaledCenter.z;
+      model.position.y -= scaledBox.min.y;
+      model.position.y += MODEL_Y_OFFSET;
+
+      // 2) Rotación en un contenedor padre para conservar alineación con el target.
+      const modelRoot = new THREE.Group();
+      modelRoot.rotation.set(
+        THREE.MathUtils.degToRad(ROT_X),
+        THREE.MathUtils.degToRad(ROT_Y),
+        THREE.MathUtils.degToRad(ROT_Z)
+      );
+      modelRoot.add(model);
+
+      anchor.group.add(modelRoot);
+
+      if (gltf.animations && gltf.animations.length > 0) {
+        mixer = new THREE.AnimationMixer(model);
+        gltf.animations.forEach((clip) => {
+          mixer.clipAction(clip).play();
+        });
+      }
+
+      // Agregar imagen flotante arriba del dinosaurio
+      await addFloatingImage(anchor, modelRoot, camera);
+
+      return modelRoot;
+    }
+
+    async function startAR() {
+      if (started) return;
+
+      startBtn.disabled = true;
+      setMessage("Cargando cámara, modelo e imagen...");
+
+      mindarThree = new MindARThree({
+        container,
+        imageTargetSrc: TARGETS_URL,
+
+        // Más estabilidad, menos temblor:
+        // beta muy alto vuelve el tracking nervioso; valores bajos suavizan.
+        filterMinCF: 0.0001,
+        filterBeta: 0.01,
+
+        // Evita cambios bruscos entre encontrado y perdido
+        warmupTolerance: 8,
+        missTolerance: 8
+      });
+
+      ({ renderer, scene, camera } = mindarThree);
+
+      renderer.setClearAlpha(0);
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1.5);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      dirLight.position.set(0, 2, 1);
+      scene.add(dirLight);
+
+      const anchor = mindarThree.addAnchor(0);
+
+      anchor.onTargetFound = () => {
+        setMessage("Target detectado.");
+        if (dinoAudio && dinoAudio.paused) {
+          dinoAudio.play().catch(() => {});
+        }
+      };
+
+      anchor.onTargetLost = () => {
+        setMessage("Apunta nuevamente a la imagen target.");
+        if (dinoAudio && !dinoAudio.paused) {
+          dinoAudio.pause();
+        }
+      };
+
+      setupAudio();
+      await buildGLB(anchor);
+
+      await mindarThree.start();
+      started = true;
+
+      setMessage("AR activa. Apunta a tu imagen target.");
+
+      renderer.setAnimationLoop(() => {
+        const delta = clock.getDelta();
+        if (mixer) mixer.update(delta);
+        renderer.render(scene, camera);
+      });
+    }
+
+    function stopAR() {
+      if (!mindarThree || !started) return;
+
+      mindarThree.stop();
+      mindarThree.renderer.setAnimationLoop(null);
+      if (dinoAudio) {
+        dinoAudio.pause();
+        dinoAudio.currentTime = 0;
+      }
+      started = false;
+      startBtn.disabled = false;
+      setMessage("AR detenida.");
+    }
+
+    startBtn.addEventListener("click", async () => {
+      try {
+        await startAR();
+      } catch (err) {
+        console.error(err);
+        setMessage("No se pudo iniciar. Revisa rutas, cámara y archivos.");
+        startBtn.disabled = false;
+      }
+    });
+
+    stopBtn.addEventListener("click", () => {
+      stopAR();
+    });
+  </script>
+</body>
+</html>
