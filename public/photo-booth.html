@@ -138,6 +138,33 @@
         display: none;
       }
 
+      .camera-switch-wrap {
+        display: flex;
+        justify-content: center;
+        margin-top: -0.1rem;
+      }
+
+      .photo-app.is-form-mode .camera-switch-wrap {
+        display: none;
+      }
+
+      .camera-switch-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.55rem;
+        min-width: 13rem;
+        background: rgba(255, 255, 255, 0.92);
+        color: var(--stone-700);
+        box-shadow: 0 10px 18px rgba(43, 26, 15, 0.08);
+      }
+
+      .camera-switch-btn svg {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+      }
+
       .orientation-toggle {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -447,6 +474,18 @@
         <div id="flash" class="flash"></div>
       </section>
 
+      <div class="camera-switch-wrap">
+        <button id="switchCameraBtn" class="camera-switch-btn" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 0 1-9 9"></path>
+            <path d="M3 12a9 9 0 0 1 9-9"></path>
+            <path d="M16 4h5v5"></path>
+            <path d="M8 20H3v-5"></path>
+          </svg>
+          Cambiar a frontal
+        </button>
+      </div>
+
       <section class="controls">
         <div class="orientation-toggle">
           <button id="horizontalBtn" class="orientation-btn is-active" type="button" aria-pressed="true">
@@ -532,6 +571,7 @@
 
       const horizontalBtn = document.querySelector("#horizontalBtn");
       const verticalBtn = document.querySelector("#verticalBtn");
+      const switchCameraBtn = document.querySelector("#switchCameraBtn");
       const startBtn = document.querySelector("#startBtn");
       const captureBtn = document.querySelector("#captureBtn");
       const continueBtn = document.querySelector("#continueBtn");
@@ -544,6 +584,7 @@
       let stream = null;
       let capturedDataUrl = "";
       let orientation = "horizontal";
+      let cameraFacingMode = "environment";
 
       nameInput.value = query.get("name") || "";
       emailInput.value = query.get("email") || "";
@@ -582,6 +623,28 @@
 
       function syncSendState() {
         sendBtn.disabled = !(capturedDataUrl && hasValidContactData());
+      }
+
+      function updateCameraSwitchLabel() {
+        switchCameraBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 0 1-9 9"></path>
+            <path d="M3 12a9 9 0 0 1 9-9"></path>
+            <path d="M16 4h5v5"></path>
+            <path d="M8 20H3v-5"></path>
+          </svg>
+          ${cameraFacingMode === "environment" ? "Cambiar a frontal" : "Cambiar a trasera"}
+        `;
+      }
+
+      function stopCurrentStream() {
+        if (!stream) {
+          return;
+        }
+
+        stream.getTracks().forEach((track) => track.stop());
+        stream = null;
+        video.srcObject = null;
       }
 
       function setFormMode(enabled) {
@@ -643,13 +706,17 @@
         }
       }
 
-      async function startCamera() {
+      async function startCamera(forceRestart = false) {
         try {
           setStatus("Solicitando permiso de camara...");
+          if (forceRestart) {
+            stopCurrentStream();
+          }
+
           if (!stream) {
             stream = await navigator.mediaDevices.getUserMedia({
               video: {
-                facingMode: { ideal: "environment" },
+                facingMode: { ideal: cameraFacingMode },
                 width: { ideal: 1920 },
                 height: { ideal: 1080 },
               },
@@ -665,6 +732,23 @@
           console.error(error);
           setStatus("No se pudo abrir la camara. Revisa permisos.", "error");
         }
+      }
+
+      async function switchCamera() {
+        cameraFacingMode =
+          cameraFacingMode === "environment" ? "user" : "environment";
+        updateCameraSwitchLabel();
+
+        if (capturedDataUrl) {
+          resetForAnotherPhoto();
+        }
+
+        await startCamera(true);
+        setStatus(
+          cameraFacingMode === "environment"
+            ? "Camara trasera activa."
+            : "Camara frontal activa."
+        );
       }
 
       function drawCover(sourceWidth, sourceHeight, destWidth, destHeight, drawFn) {
@@ -824,10 +908,12 @@
       showStep("start");
       setStatus("Activa la camara para comenzar.");
       updateOrientationUI();
+      updateCameraSwitchLabel();
       syncSendState();
 
       horizontalBtn.addEventListener("click", () => switchOrientation("horizontal"));
       verticalBtn.addEventListener("click", () => switchOrientation("vertical"));
+      switchCameraBtn.addEventListener("click", switchCamera);
       startBtn.addEventListener("click", startCamera);
       captureBtn.addEventListener("click", capturePhoto);
       continueBtn.addEventListener("click", continueToForm);
@@ -845,9 +931,7 @@
       });
 
       window.addEventListener("beforeunload", () => {
-        if (stream) {
-          stream.getTracks().forEach((track) => track.stop());
-        }
+        stopCurrentStream();
       });
     </script>
   </body>
