@@ -661,20 +661,26 @@ function renderPhotoView() {
 
       <div class="stack-list">
         <article class="photo-option-card">
-          <div class="photo-option-card__frame photo-option-card__frame--horizontal">
+          <button
+            class="photo-option-card__frame photo-option-card__frame--horizontal"
+            data-action="open-photo-booth"
+            aria-label="Tomar Foto"
+          >
             <img src="./assets/photo/frame/mude.png" alt="Marco horizontal MUDE" />
-          </div>
-          <button class="primary-button primary-button--wide" data-action="open-photo-booth">
-            Tomar Foto
+            <span class="photo-option-card__overlay-button">Tomar Foto</span>
           </button>
         </article>
 
         <article class="photo-option-card">
-          <div class="photo-option-card__frame photo-option-card__frame--vertical">
-            <img src="./assets/photo/frame/mudev.png" alt="Marco vertical MUDE" />
-          </div>
-          <button class="ghost-button photo-option-card__button" data-action="open-photo-gallery">
-            Ver Mis Fotos
+          <button
+            class="photo-option-card__frame photo-option-card__frame--horizontal"
+            data-action="open-photo-gallery"
+            aria-label="Ver Mis Fotos"
+          >
+            <img src="./assets/photo/frame/mude.png" alt="Marco horizontal MUDE" />
+            <span class="photo-option-card__overlay-button photo-option-card__overlay-button--ghost">
+              Ver Mis Fotos
+            </span>
           </button>
         </article>
       </div>

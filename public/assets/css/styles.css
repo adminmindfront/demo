@@ -767,8 +767,6 @@ img {
 }
 
 .photo-option-card {
-  display: grid;
-  gap: 1rem;
   padding: 1rem;
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.84);
@@ -777,6 +775,8 @@ img {
 }
 
 .photo-option-card__frame {
+  position: relative;
+  display: block;
   margin: 0 auto;
   overflow: hidden;
   border-radius: 1.35rem;
@@ -796,13 +796,26 @@ img {
   aspect-ratio: 16 / 9;
 }
 
-.photo-option-card__frame--vertical {
-  width: min(52vw, 10rem);
-  aspect-ratio: 9 / 16;
+.photo-option-card__overlay-button {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 8.25rem;
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  color: white;
+  font-size: 0.82rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, var(--green-500), #1d8d49);
+  box-shadow: 0 12px 22px rgba(29, 141, 73, 0.22);
+  backdrop-filter: blur(4px);
 }
 
-.photo-option-card__button {
-  width: 100%;
+.photo-option-card__overlay-button--ghost {
+  color: var(--stone-700);
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 12px 22px rgba(43, 26, 15, 0.12);
 }
 
 .experience-frame {
