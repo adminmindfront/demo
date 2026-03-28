@@ -1,0 +1,805 @@
+import { PAVILIONS, PRODUCTS } from "./data.js";
+import { renderIcon } from "./icons.js";
+
+const app = document.querySelector("#app");
+const STORAGE_KEY = "mude-explorer-state-v1";
+const currencyFormatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+  maximumFractionDigits: 0,
+});
+
+const timers = {
+  arScanner: null,
+  payment: null,
+};
+
+const persistedState = loadPersistedState();
+
+const state = {
+  activeTab: "passport",
+  unlockedStamps: persistedState.unlockedStamps ?? [],
+  cart: persistedState.cart ?? [],
+  purchases: persistedState.purchases ?? [],
+  showCheckout: false,
+  showQRModal: null,
+  showARScanner: null,
+  arScanned: false,
+  isProcessingPayment: false,
+  userId: persistedState.userId ?? generateExplorerId(),
+  ai: {
+    lang: "es",
+    input: "",
+    messages: [
+      {
+        id: 1,
+        text: "Hola explorador. Soy Fidencio, la IA del Museo del Desierto. Puedes preguntarme sobre dinosaurios, horarios o tu visita.",
+        sender: "bot",
+      },
+    ],
+  },
+};
+
+function loadPersistedState() {
+  try {
+    const saved = window.localStorage.getItem(STORAGE_KEY);
+    return saved ? JSON.parse(saved) : {};
+  } catch (error) {
+    return {};
+  }
+}
+
+function persistState() {
+  const snapshot = {
+    unlockedStamps: state.unlockedStamps,
+    cart: state.cart,
+    purchases: state.purchases,
+    userId: state.userId,
+  };
+
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+}
+
+function generateExplorerId() {
+  return `#MUDE-${Math.floor(Math.random() * 9000) + 1000}`;
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function formatCurrency(amount) {
+  return currencyFormatter.format(amount);
+}
+
+function getPavilionById(id) {
+  return PAVILIONS.find((item) => item.id === Number(id));
+}
+
+function getProductById(id) {
+  return PRODUCTS.find((item) => item.id === id);
+}
+
+function getPurchaseById(id) {
+  return state.purchases.find((item) => item.id === id);
+}
+
+function getCartTotal() {
+  return state.cart.reduce((sum, item) => sum + item.price, 0);
+}
+
+function renderApp() {
+  app.innerHTML = `
+    <div class="app-shell">
+      ${state.activeTab !== "ai" ? renderHeader() : ""}
+      <main class="app-content">
+        ${renderCurrentView()}
+      </main>
+      ${renderBottomNav()}
+      ${renderARScannerModal()}
+      ${renderCheckoutModal()}
+      ${renderQRCodeModal()}
+    </div>
+  `;
+
+  if (state.activeTab === "ai") {
+    requestAnimationFrame(() => {
+      const messagesEnd = document.querySelector("[data-chat-end]");
+      messagesEnd?.scrollIntoView({ behavior: "smooth", block: "end" });
+    });
+  }
+}
+
+function renderHeader() {
+  return `
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand__mark">M</div>
+        <div>
+          <p class="brand__title">MUDE Explorer</p>
+          <p class="brand__subtitle">Museo del Desierto</p>
+        </div>
+      </div>
+      ${
+        state.cart.length > 0
+          ? `
+            <div class="status-pill">
+              <span class="status-pill__dot"></span>
+              ${state.cart.length} en carrito
+            </div>
+          `
+          : ""
+      }
+    </header>
+  `;
+}
+
+function renderCurrentView() {
+  switch (state.activeTab) {
+    case "pavilions":
+      return renderPavilionsView();
+    case "shop":
+      return renderShopView();
+    case "ai":
+      return renderAIGuideView();
+    case "passport":
+    default:
+      return renderPassportView();
+  }
+}
+
+function renderPassportView() {
+  const purchasesSection =
+    state.purchases.length > 0
+      ? `
+        <section class="section-block">
+          <h3 class="section-title">
+            ${renderIcon("qr-code", { className: "section-title__icon", size: 18 })}
+            Mis entradas y pases
+          </h3>
+          <div class="stack-list">
+            ${state.purchases
+              .map(
+                (purchase) => `
+                  <button class="receipt-card" data-action="open-qr" data-purchase-id="${purchase.id}">
+                    <div>
+                      <p class="receipt-card__title">Recibo ${escapeHtml(purchase.id)}</p>
+                      <p class="receipt-card__meta">${purchase.items.length} articulo(s) · ${formatCurrency(purchase.total)}</p>
+                    </div>
+                    <span class="receipt-card__icon">
+                      ${renderIcon("qr-code", { size: 22 })}
+                    </span>
+                  </button>
+                `
+              )
+              .join("")}
+          </div>
+        </section>
+      `
+      : "";
+
+  return `
+    <section class="view view--passport">
+      <article class="passport-card">
+        <div class="passport-card__bone">
+          ${renderIcon("bone", { size: 120 })}
+        </div>
+        <div class="passport-card__profile">
+          <div class="passport-card__avatar">
+            ${renderIcon("user", { size: 36 })}
+          </div>
+          <div>
+            <h2 class="passport-card__title">Explorador MUDE</h2>
+            <p class="passport-card__id">ID: ${escapeHtml(state.userId)}</p>
+            <div class="badge-inline">
+              ${renderIcon("award", { size: 16 })}
+              Rango: Paleontologo Novato
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <section class="section-block">
+        <h3 class="section-title">
+          ${renderIcon("scan-line", { className: "section-title__icon", size: 18 })}
+          Sellos de expedicion (${state.unlockedStamps.length}/4)
+        </h3>
+
+        <div class="stamp-grid">
+          ${PAVILIONS.map((pavilion) => {
+            const unlocked = state.unlockedStamps.includes(pavilion.id);
+            return `
+              <article class="stamp-card ${unlocked ? "is-unlocked" : ""}">
+                <div class="stamp-card__icon stamp-card__icon--${pavilion.color}">
+                  ${pavilion.icon}
+                </div>
+                <p class="stamp-card__name">${escapeHtml(pavilion.name)}</p>
+                ${
+                  unlocked
+                    ? '<p class="stamp-card__status">Desbloqueado</p>'
+                    : '<p class="stamp-card__status stamp-card__status--muted">Pendiente</p>'
+                }
+              </article>
+            `;
+          }).join("")}
+        </div>
+
+        ${
+          state.unlockedStamps.length === PAVILIONS.length
+            ? `
+              <div class="success-banner">
+                <h4>Expedicion completada</h4>
+                <p>Desbloqueaste tu cupon del 10% en tienda.</p>
+              </div>
+            `
+            : ""
+        }
+      </section>
+
+      ${purchasesSection}
+    </section>
+  `;
+}
+
+function renderPavilionsView() {
+  return `
+    <section class="view view--pavilions">
+      <div class="view-headline">
+        <p class="eyebrow">Ruta interactiva</p>
+        <h2>Explorar pabellones</h2>
+        <p>
+          Encuentra los marcadores AR en cada zona para coleccionar sellos
+          fisicos y digitales.
+        </p>
+      </div>
+
+      <div class="stack-list">
+        ${PAVILIONS.map(
+          (pavilion) => `
+            <article class="pavilion-card">
+              <div class="pavilion-card__bar pavilion-card__bar--${pavilion.color}"></div>
+              <div class="pavilion-card__content">
+                <div class="pavilion-card__summary">
+                  <div class="pavilion-card__emoji">${pavilion.icon}</div>
+                  <div>
+                    <h3>${escapeHtml(pavilion.name)}</h3>
+                    <p>${escapeHtml(pavilion.desc)}</p>
+                  </div>
+                </div>
+                <button class="primary-button primary-button--compact" data-action="open-ar" data-pavilion-id="${pavilion.id}">
+                  ${renderIcon("camera", { size: 16 })}
+                  Escanear AR
+                </button>
+              </div>
+            </article>
+          `
+        ).join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderShopView() {
+  const tickets = PRODUCTS.filter((product) => product.type === "ticket");
+  const extras = PRODUCTS.filter((product) => product.type !== "ticket");
+  const cartTotal = getCartTotal();
+
+  return `
+    <section class="view view--shop">
+      <div class="view-headline">
+        <p class="eyebrow">Compra digital</p>
+        <h2>Taquilla y servicios</h2>
+      </div>
+
+      ${renderProductGroup("Boletos de entrada", tickets)}
+      ${renderProductGroup("Experiencias y alimentos", extras)}
+
+      ${
+        state.cart.length > 0
+          ? `
+            <aside class="floating-cart">
+              <div>
+                <p class="floating-cart__meta">${state.cart.length} articulo(s)</p>
+                <p class="floating-cart__total">Total: ${formatCurrency(cartTotal)}</p>
+              </div>
+              <button class="success-button" data-action="open-checkout">
+                Pagar
+                ${renderIcon("chevron-right", { size: 18 })}
+              </button>
+            </aside>
+          `
+          : ""
+      }
+    </section>
+  `;
+}
+
+function renderProductGroup(title, products) {
+  return `
+    <section class="section-block section-block--spaced">
+      <h3 class="section-subtitle">${escapeHtml(title)}</h3>
+      <div class="stack-list">
+        ${products
+          .map(
+            (product) => `
+              <article class="product-card">
+                <div>
+                  <h4>${escapeHtml(product.name)}</h4>
+                  <p>${formatCurrency(product.price)}</p>
+                </div>
+                <button class="icon-button icon-button--warm" data-action="add-to-cart" data-product-id="${product.id}" aria-label="Agregar ${escapeHtml(product.name)}">
+                  ${renderIcon("shopping-cart", { size: 18 })}
+                </button>
+              </article>
+            `
+          )
+          .join("")}
+      </div>
+    </section>
+  `;
+}
+
+function renderAIGuideView() {
+  return `
+    <section class="chat-view">
+      <header class="chat-header">
+        <div class="chat-header__identity">
+          <div class="chat-header__avatar">🦬</div>
+          <div>
+            <h2>Fidencio IA</h2>
+            <p>En linea</p>
+          </div>
+        </div>
+        <button class="ghost-button ghost-button--dark" data-action="toggle-lang">
+          ${renderIcon("globe", { size: 14 })}
+          ${state.ai.lang === "es" ? "ES" : "EN"}
+        </button>
+      </header>
+
+      <div class="chat-messages">
+        ${state.ai.messages
+          .map(
+            (message) => `
+              <div class="chat-row ${message.sender === "user" ? "chat-row--user" : ""}">
+                <article class="chat-bubble ${message.sender === "user" ? "chat-bubble--user" : ""}">
+                  <p>${escapeHtml(message.text)}</p>
+                </article>
+              </div>
+            `
+          )
+          .join("")}
+        <div data-chat-end></div>
+      </div>
+
+      <form class="chat-inputbar" data-form="chat">
+        <input
+          type="text"
+          name="chatMessage"
+          data-role="chat-input"
+          value="${escapeHtml(state.ai.input)}"
+          placeholder="${state.ai.lang === "es" ? "Pregunta algo..." : "Ask something..."}"
+          autocomplete="off"
+        />
+        <button class="icon-button icon-button--solid" type="submit" aria-label="Enviar mensaje">
+          ${renderIcon("send", { size: 18 })}
+        </button>
+      </form>
+    </section>
+  `;
+}
+
+function renderBottomNav() {
+  const tabs = [
+    { id: "passport", label: "Pasaporte", icon: "user" },
+    { id: "pavilions", label: "Explorar", icon: "map" },
+    { id: "shop", label: "Tienda", icon: "ticket" },
+    { id: "ai", label: "Guia IA", icon: "message-circle" },
+  ];
+
+  return `
+    <nav class="bottom-nav">
+      ${tabs
+        .map((tab) => {
+          const active = state.activeTab === tab.id;
+          return `
+            <button class="bottom-nav__item ${active ? "is-active" : ""}" data-action="set-tab" data-tab="${tab.id}">
+              <span class="bottom-nav__icon-wrap">
+                ${renderIcon(tab.icon, { size: 22 })}
+                ${
+                  tab.id === "shop" && state.cart.length > 0
+                    ? `<span class="bottom-nav__badge">${state.cart.length}</span>`
+                    : ""
+                }
+              </span>
+              <span>${tab.label}</span>
+            </button>
+          `;
+        })
+        .join("")}
+    </nav>
+  `;
+}
+
+function renderARScannerModal() {
+  if (!state.showARScanner) {
+    return "";
+  }
+
+  return `
+    <div class="modal-overlay modal-overlay--scanner" data-backdrop="ar">
+      <section class="scanner-modal animate-fade-in">
+        <button class="icon-button icon-button--overlay scanner-modal__close" data-action="close-ar" aria-label="Cerrar escaner">
+          ${renderIcon("x", { size: 20 })}
+        </button>
+
+        ${
+          !state.arScanned
+            ? `
+              <div class="scanner-stage">
+                <div class="scanner-frame">
+                  <span class="scanner-line"></span>
+                  ${renderIcon("scan-line", { size: 52, className: "scanner-stage__icon" })}
+                </div>
+                <h3>Apuntando al marcador del pasaporte...</h3>
+                <p>
+                  Alinea la camara con el simbolo impreso de
+                  "${escapeHtml(state.showARScanner.name)}".
+                </p>
+              </div>
+            `
+            : `
+              <div class="scanner-success">
+                <div class="scanner-success__emoji">${state.showARScanner.icon}</div>
+                <div class="scanner-success__panel">
+                  <div class="scanner-success__check">
+                    ${renderIcon("check-circle", { size: 28 })}
+                  </div>
+                  <h3>Sello desbloqueado</h3>
+                  <p>Capturaste la experiencia de ${escapeHtml(state.showARScanner.name)}.</p>
+                  <button class="primary-button" data-action="close-ar">Continuar expedicion</button>
+                </div>
+              </div>
+            `
+        }
+      </section>
+    </div>
+  `;
+}
+
+function renderCheckoutModal() {
+  if (!state.showCheckout) {
+    return "";
+  }
+
+  const cartTotal = getCartTotal();
+
+  return `
+    <div class="modal-overlay" data-backdrop="checkout">
+      <section class="modal-card modal-card--checkout animate-fade-in">
+        <button class="icon-button icon-button--ghost modal-card__close" data-action="close-checkout" aria-label="Cerrar pago">
+          ${renderIcon("x", { size: 20 })}
+        </button>
+
+        <h3 class="modal-title">
+          ${renderIcon("credit-card", { size: 18 })}
+          Pasarela de pago
+        </h3>
+
+        <div class="checkout-summary">
+          <p class="checkout-summary__label">Resumen de compra</p>
+          ${state.cart
+            .map(
+              (item) => `
+                <div class="checkout-summary__row">
+                  <span>${escapeHtml(item.name)}</span>
+                  <strong>${formatCurrency(item.price)}</strong>
+                </div>
+              `
+            )
+            .join("")}
+          <div class="checkout-summary__total">
+            <span>Total a pagar</span>
+            <strong>${formatCurrency(cartTotal)}</strong>
+          </div>
+        </div>
+
+        <form class="checkout-form" data-form="checkout">
+          <label>
+            <span>Numero de tarjeta (simulador)</span>
+            <input type="text" name="cardNumber" placeholder="4242 4242 4242 4242" required />
+          </label>
+          <div class="checkout-form__grid">
+            <label>
+              <span>Fecha exp</span>
+              <input type="text" name="expiry" placeholder="MM/AA" required />
+            </label>
+            <label>
+              <span>CVC</span>
+              <input type="text" name="cvc" placeholder="123" required />
+            </label>
+          </div>
+          <button class="success-button success-button--wide" type="submit" ${state.isProcessingPayment ? "disabled" : ""}>
+            ${state.isProcessingPayment ? "Procesando pago..." : `Pagar ${formatCurrency(cartTotal)}`}
+          </button>
+        </form>
+      </section>
+    </div>
+  `;
+}
+
+function renderQRCodeModal() {
+  if (!state.showQRModal) {
+    return "";
+  }
+
+  const qrData = JSON.stringify({
+    id: state.showQRModal.id,
+    items: state.showQRModal.items.length,
+    total: state.showQRModal.total,
+    date: state.showQRModal.date,
+  });
+
+  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(
+    qrData
+  )}&color=3a2412`;
+
+  return `
+    <div class="modal-overlay" data-backdrop="qr">
+      <section class="modal-card modal-card--qr animate-fade-in">
+        <button class="icon-button icon-button--ghost modal-card__close" data-action="close-qr" aria-label="Cerrar QR">
+          ${renderIcon("x", { size: 20 })}
+        </button>
+
+        <div class="purchase-success">
+          <div class="purchase-success__icon">
+            ${renderIcon("check-circle", { size: 28 })}
+          </div>
+          <h3>Compra exitosa</h3>
+          <p>Muestra este codigo en la entrada o taquilla especial.</p>
+        </div>
+
+        <div class="qr-ticket">
+          <div class="qr-ticket__cut qr-ticket__cut--left"></div>
+          <div class="qr-ticket__cut qr-ticket__cut--right"></div>
+          <img src="${qrUrl}" alt="Boleto QR dinamico" />
+          <p>ID: ${escapeHtml(state.showQRModal.id)}</p>
+        </div>
+
+        <div class="ticket-items">
+          ${state.showQRModal.items
+            .map(
+              (item) => `
+                <div class="ticket-items__row">
+                  ${renderIcon("ticket", { size: 14 })}
+                  <span>${escapeHtml(item.name)}</span>
+                </div>
+              `
+            )
+            .join("")}
+        </div>
+
+        <button class="primary-button primary-button--wide" data-action="close-qr">
+          Guardar en mi pasaporte
+        </button>
+      </section>
+    </div>
+  `;
+}
+
+function handleAction(action, dataset) {
+  switch (action) {
+    case "set-tab":
+      state.activeTab = dataset.tab;
+      renderApp();
+      return;
+    case "open-ar":
+      openArScanner(dataset.pavilionId);
+      return;
+    case "close-ar":
+      closeArScanner();
+      return;
+    case "add-to-cart": {
+      const product = getProductById(dataset.productId);
+      if (!product) {
+        return;
+      }
+      state.cart = [...state.cart, product];
+      persistState();
+      renderApp();
+      return;
+    }
+    case "open-checkout":
+      if (state.cart.length > 0) {
+        state.showCheckout = true;
+        renderApp();
+      }
+      return;
+    case "close-checkout":
+      if (!state.isProcessingPayment) {
+        state.showCheckout = false;
+        renderApp();
+      }
+      return;
+    case "open-qr": {
+      const purchase = getPurchaseById(dataset.purchaseId);
+      if (!purchase) {
+        return;
+      }
+      state.showQRModal = purchase;
+      renderApp();
+      return;
+    }
+    case "close-qr":
+      state.showQRModal = null;
+      renderApp();
+      return;
+    case "toggle-lang":
+      state.ai.lang = state.ai.lang === "es" ? "en" : "es";
+      renderApp();
+      return;
+    default:
+      return;
+  }
+}
+
+function openArScanner(pavilionId) {
+  const pavilion = getPavilionById(pavilionId);
+  if (!pavilion) {
+    return;
+  }
+
+  clearTimeout(timers.arScanner);
+  state.showARScanner = pavilion;
+  state.arScanned = false;
+  renderApp();
+
+  timers.arScanner = window.setTimeout(() => {
+    state.arScanned = true;
+    if (!state.unlockedStamps.includes(pavilion.id)) {
+      state.unlockedStamps = [...state.unlockedStamps, pavilion.id];
+      persistState();
+    }
+    renderApp();
+  }, 2500);
+}
+
+function closeArScanner() {
+  clearTimeout(timers.arScanner);
+  state.showARScanner = null;
+  state.arScanned = false;
+  renderApp();
+}
+
+function handleCheckout(event) {
+  event.preventDefault();
+
+  if (state.isProcessingPayment || state.cart.length === 0) {
+    return;
+  }
+
+  state.isProcessingPayment = true;
+  renderApp();
+
+  clearTimeout(timers.payment);
+  timers.payment = window.setTimeout(() => {
+    const newPurchase = {
+      id: `TXN-${Math.floor(Math.random() * 1000000)
+        .toString()
+        .padStart(6, "0")}`,
+      items: [...state.cart],
+      total: getCartTotal(),
+      date: new Date().toLocaleString("es-MX"),
+    };
+
+    state.purchases = [newPurchase, ...state.purchases];
+    state.cart = [];
+    state.isProcessingPayment = false;
+    state.showCheckout = false;
+    state.showQRModal = newPurchase;
+    state.activeTab = "passport";
+    persistState();
+    renderApp();
+  }, 2000);
+}
+
+function handleChatSubmit(event) {
+  event.preventDefault();
+  const message = state.ai.input.trim();
+  const replyLanguage = state.ai.lang;
+
+  if (!message) {
+    return;
+  }
+
+  state.ai.messages = [
+    ...state.ai.messages,
+    { id: Date.now(), text: message, sender: "user" },
+  ];
+  state.ai.input = "";
+  renderApp();
+
+  window.setTimeout(() => {
+    state.ai.messages = [
+      ...state.ai.messages,
+      {
+        id: Date.now() + 1,
+        text: getBotResponse(message, replyLanguage),
+        sender: "bot",
+      },
+    ];
+    renderApp();
+  }, 1000);
+}
+
+function getBotResponse(input, lang) {
+  const question = input.toLowerCase();
+
+  if (lang === "en") {
+    if (question.includes("hour") || question.includes("close")) {
+      return "The museum is open from Tuesday to Sunday, 10:00 to 17:00. Ticket counters close at 17:00.";
+    }
+
+    if (question.includes("t-rex") || question.includes("tyrannosaurus")) {
+      return "The Tyrannosaurus rex is one of the most famous predators. In Pavilion 1 you can find a striking skeletal replica and an AR interaction.";
+    }
+
+    return "I am Fidencio, your virtual guide. You can explore fossils from Coahuila, visit the pavilions, and use the AR passport during your visit.";
+  }
+
+  if (question.includes("t-rex") || question.includes("tiranosaurio")) {
+    return "El Tiranosaurio rex fue uno de los depredadores mas grandes. En el Pabellon 1 puedes ver una replica impresionante e interactuar con ella en realidad aumentada.";
+  }
+
+  if (question.includes("hora") || question.includes("horario") || question.includes("cierra")) {
+    return "El museo esta abierto de martes a domingo de 10:00 a 17:00 horas. Las taquillas cierran a las 17:00 horas.";
+  }
+
+  return "Interesante pregunta. El Museo del Desierto resguarda fosiles unicos de Coahuila y una coleccion enfocada en la historia natural del desierto.";
+}
+
+document.addEventListener("click", (event) => {
+  const actionButton = event.target.closest("[data-action]");
+  if (actionButton) {
+    handleAction(actionButton.dataset.action, actionButton.dataset);
+    return;
+  }
+
+  const backdrop = event.target.dataset.backdrop;
+  if (backdrop === "ar") {
+    closeArScanner();
+  }
+
+  if (backdrop === "checkout" && !state.isProcessingPayment) {
+    state.showCheckout = false;
+    renderApp();
+  }
+
+  if (backdrop === "qr") {
+    state.showQRModal = null;
+    renderApp();
+  }
+});
+
+document.addEventListener("input", (event) => {
+  if (event.target.matches("[data-role='chat-input']")) {
+    state.ai.input = event.target.value;
+  }
+});
+
+document.addEventListener("submit", (event) => {
+  if (event.target.matches("[data-form='checkout']")) {
+    handleCheckout(event);
+  }
+
+  if (event.target.matches("[data-form='chat']")) {
+    handleChatSubmit(event);
+  }
+});
+
+persistState();
+renderApp();
