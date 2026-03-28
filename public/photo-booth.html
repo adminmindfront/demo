@@ -223,6 +223,34 @@
         box-shadow: 0 12px 24px rgba(43, 26, 15, 0.06);
       }
 
+      .delivery-methods {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.65rem;
+      }
+
+      .delivery-option {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.6rem;
+        background: rgba(255, 255, 255, 0.9);
+        color: var(--stone-700);
+        box-shadow: 0 10px 18px rgba(43, 26, 15, 0.08);
+      }
+
+      .delivery-option.is-active {
+        color: white;
+        background: linear-gradient(135deg, var(--earth-600), var(--earth-700));
+      }
+
+      .delivery-option img {
+        width: 1.15rem;
+        height: 1.15rem;
+        object-fit: contain;
+        display: block;
+      }
+
       .stage.is-review {
         max-width: 9.5rem;
         max-height: 7rem;
@@ -495,7 +523,7 @@
     <main class="photo-app">
       <h1 class="title">Foto MUDE</h1>
       <p class="subtitle">
-        Toma tu foto con el marco del museo y enviala por correo.
+        Toma tu foto con el marco del museo y enviala por correo o WhatsApp.
       </p>
 
       <section class="stage">
@@ -551,24 +579,44 @@
           <img id="mailPreviewImage" alt="Vista previa de la foto" />
           <p>
             Tu foto ya esta lista.
-            Revisa tus datos para enviarla por correo.
+            Elige como quieres recibirla y completa tus datos.
           </p>
+        </div>
+        <div class="delivery-methods">
+          <button
+            id="emailOptionBtn"
+            class="delivery-option is-active"
+            type="button"
+            data-delivery="email"
+          >
+            <img src="./assets/img/mail.png" alt="" aria-hidden="true" />
+            Correo
+          </button>
+          <button
+            id="whatsappOptionBtn"
+            class="delivery-option"
+            type="button"
+            data-delivery="whatsapp"
+          >
+            <img src="./assets/img/wp.webp" alt="" aria-hidden="true" />
+            WhatsApp
+          </button>
         </div>
         <div class="field-grid">
           <div class="field">
             <label for="nameInput">Nombre</label>
             <input id="nameInput" type="text" placeholder="Nombre del visitante" autocomplete="name" />
           </div>
-          <div class="field">
+          <div id="phoneField" class="field is-hidden">
             <label for="phoneInput">Telefono</label>
-            <input id="phoneInput" type="tel" placeholder="8441234567" inputmode="tel" autocomplete="tel" />
+            <input id="phoneInput" type="tel" placeholder="5218441234567" inputmode="tel" autocomplete="tel" />
           </div>
-          <div class="field full">
+          <div id="emailField" class="field full">
             <label for="emailInput">Correo</label>
             <input id="emailInput" type="email" placeholder="correo@ejemplo.com" autocomplete="email" />
           </div>
         </div>
-        <button id="sendBtn" class="btn-send" type="button" disabled>Enviar foto</button>
+        <button id="sendBtn" class="btn-send" type="button" disabled>Enviar por correo</button>
         <button id="againBtn" class="btn-again is-hidden" type="button">Tomar otra</button>
       </section>
 
@@ -585,7 +633,8 @@
     <canvas id="canvas" width="1920" height="1080" style="display:none;"></canvas>
 
     <script>
-      const ENDPOINT_URL = "https://msj-573177942079.us-central1.run.app";
+      const EMAIL_ENDPOINT_URL = "https://msj-573177942079.us-central1.run.app";
+      const WHATSAPP_ENDPOINT_URL = "https://whatsapp-780373663877.us-central1.run.app";
       const query = new URLSearchParams(window.location.search);
 
       const photoApp = document.querySelector(".photo-app");
@@ -599,6 +648,10 @@
       const mailBox = document.querySelector("#mailBox");
       const mailPreview = document.querySelector("#mailPreview");
       const mailPreviewImage = document.querySelector("#mailPreviewImage");
+      const emailOptionBtn = document.querySelector("#emailOptionBtn");
+      const whatsappOptionBtn = document.querySelector("#whatsappOptionBtn");
+      const emailField = document.querySelector("#emailField");
+      const phoneField = document.querySelector("#phoneField");
       const previewLightbox = document.querySelector("#previewLightbox");
       const lightboxImage = document.querySelector("#lightboxImage");
       const closeLightboxBtn = document.querySelector("#closeLightboxBtn");
@@ -621,6 +674,7 @@
       let capturedDataUrl = "";
       let orientation = "horizontal";
       let cameraFacingMode = "environment";
+      let deliveryMethod = "email";
 
       nameInput.value = query.get("name") || "";
       emailInput.value = query.get("email") || "";
@@ -652,11 +706,15 @@
       }
 
       function hasValidContactData() {
-        return (
-          !!nameInput.value.trim() &&
-          isValidPhone(phoneInput.value.trim()) &&
-          isValidEmail(emailInput.value.trim())
-        );
+        if (!nameInput.value.trim()) {
+          return false;
+        }
+
+        if (deliveryMethod === "whatsapp") {
+          return isValidPhone(phoneInput.value.trim());
+        }
+
+        return isValidEmail(emailInput.value.trim());
       }
 
       function syncSendState() {
@@ -665,6 +723,16 @@
 
       function updateCameraModeUI() {
         stage.classList.toggle("is-front-camera", cameraFacingMode === "user");
+      }
+
+      function updateDeliveryMethodUI() {
+        const useWhatsApp = deliveryMethod === "whatsapp";
+        emailOptionBtn.classList.toggle("is-active", !useWhatsApp);
+        whatsappOptionBtn.classList.toggle("is-active", useWhatsApp);
+        emailField.classList.toggle("is-hidden", useWhatsApp);
+        phoneField.classList.toggle("is-hidden", !useWhatsApp);
+        sendBtn.textContent = useWhatsApp ? "Enviar por WhatsApp" : "Enviar por correo";
+        syncSendState();
       }
 
       function stopCurrentStream() {
@@ -880,8 +948,64 @@
         ].join("\n");
       }
 
+      function buildWhatsAppMessage(name, phone) {
+        return [
+          `Hola ${name},`,
+          "",
+          "Gracias por tu visita al Museo del Desierto (MUDE).",
+          "",
+          "Te compartimos tu fotografia tomada en el museo.",
+          "",
+          `Telefono registrado: ${phone}`,
+          "",
+          "Esperamos verte pronto.",
+        ].join("\n");
+      }
+
       function dataUrlToBase64(dataUrl) {
         return dataUrl.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, "");
+      }
+
+      async function sendPhotoByEmail(name, phone, email) {
+        const response = await fetch(EMAIL_ENDPOINT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            phone,
+            email,
+            subject: `Tu foto del MUDE, ${name}`,
+            message: buildMudeMessage(name, phone, email),
+            imageBase64: dataUrlToBase64(capturedDataUrl),
+            imageMimeType: "image/jpeg",
+            imageFilename: "foto-mude.jpg",
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.message || "No se pudo enviar el correo.");
+        }
+      }
+
+      async function sendPhotoByWhatsApp(name, phone) {
+        const response = await fetch(WHATSAPP_ENDPOINT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name,
+            phone,
+            message: buildWhatsAppMessage(name, phone),
+            imageBase64: capturedDataUrl,
+            imageMimeType: "image/jpeg",
+            imageFileName: "foto-mude.jpg",
+          }),
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.ok === false) {
+          throw new Error(data.message || "No se pudo enviar por WhatsApp.");
+        }
       }
 
       async function sendPhoto() {
@@ -894,43 +1018,43 @@
           return;
         }
 
-        if (!isValidPhone(phone)) {
-          setStatus("Ingresa un telefono valido.", "error");
-          return;
-        }
-
-        if (!isValidEmail(email)) {
+        if (deliveryMethod === "whatsapp") {
+          if (!isValidPhone(phone)) {
+            setStatus("Ingresa un telefono valido para WhatsApp.", "error");
+            return;
+          }
+        } else if (!isValidEmail(email)) {
           setStatus("Ingresa un correo valido.", "error");
           return;
         }
 
         sendBtn.disabled = true;
-        setStatus("Enviando foto...");
+        setStatus(
+          deliveryMethod === "whatsapp"
+            ? "Enviando foto por WhatsApp..."
+            : "Enviando foto por correo..."
+        );
 
         try {
-          const response = await fetch(ENDPOINT_URL, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name,
-              phone,
-              email,
-              subject: `Tu foto del MUDE, ${name}`,
-              message: buildMudeMessage(name, phone, email),
-              imageBase64: dataUrlToBase64(capturedDataUrl),
-              imageMimeType: "image/jpeg",
-              imageFilename: "foto-mude.jpg",
-            }),
-          });
-
-          const data = await response.json().catch(() => ({}));
-          if (!response.ok) {
-            throw new Error(data.message || "No se pudo enviar el correo.");
+          if (deliveryMethod === "whatsapp") {
+            await sendPhotoByWhatsApp(name, phone);
+          } else {
+            await sendPhotoByEmail(name, phone, email);
           }
 
-          setStatus("Foto enviada correctamente por correo.", "ok");
+          setStatus(
+            deliveryMethod === "whatsapp"
+              ? "Foto enviada correctamente por WhatsApp."
+              : "Foto enviada correctamente por correo.",
+            "ok"
+          );
           window.parent.postMessage(
-            { type: "mude-photo-sent", email },
+            {
+              type: "mude-photo-sent",
+              deliveryMethod,
+              email,
+              phone,
+            },
             window.location.origin
           );
           window.setTimeout(() => {
@@ -948,10 +1072,19 @@
       setStatus("Activa la camara para comenzar.");
       updateOrientationUI();
       updateCameraModeUI();
+      updateDeliveryMethodUI();
       syncSendState();
 
       horizontalBtn.addEventListener("click", () => switchOrientation("horizontal"));
       verticalBtn.addEventListener("click", () => switchOrientation("vertical"));
+      emailOptionBtn.addEventListener("click", () => {
+        deliveryMethod = "email";
+        updateDeliveryMethodUI();
+      });
+      whatsappOptionBtn.addEventListener("click", () => {
+        deliveryMethod = "whatsapp";
+        updateDeliveryMethodUI();
+      });
       switchCameraBtn.addEventListener("click", switchCamera);
       startBtn.addEventListener("click", startCamera);
       captureBtn.addEventListener("click", capturePhoto);

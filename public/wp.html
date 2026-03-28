@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enviar WhatsApp con imagen</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 560px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 24px;
+      border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    textarea {
+      min-height: 120px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 18px;
+      border: none;
+      background: #25D366;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .preview {
+      margin-top: 12px;
+      text-align: center;
+    }
+
+    .preview img {
+      max-width: 100%;
+      max-height: 250px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+    }
+
+    .result {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    .success {
+      background: #e9f9ef;
+      color: #146c2e;
+      border: 1px solid #b9e7c7;
+    }
+
+    .error {
+      background: #fdecec;
+      color: #a61b1b;
+      border: 1px solid #f2b8b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Enviar WhatsApp con imagen</h1>
+
+    <label for="name">Nombre</label>
+    <input type="text" id="name" placeholder="Ej. Omar" />
+
+    <label for="phone">Celular</label>
+    <input type="text" id="phone" placeholder="Ej. 5218112212907" />
+
+    <label for="message">Mensaje</label>
+    <textarea id="message" placeholder="Escribe el mensaje"></textarea>
+
+    <label for="image">Imagen</label>
+    <input type="file" id="image" accept="image/*" />
+
+    <div class="preview" id="preview"></div>
+
+    <button id="sendBtn">Enviar mensaje + imagen</button>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    const CLOUD_RUN_URL = "https://whatsapp-780373663877.us-central1.run.app";
+
+    const imageInput = document.getElementById("image");
+    const preview = document.getElementById("preview");
+    const result = document.getElementById("result");
+    let imageData = null;
+
+    imageInput.addEventListener("change", () => {
+      const file = imageInput.files[0];
+      imageData = null;
+      preview.innerHTML = "";
+
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imageData = {
+          imageBase64: e.target.result,
+          imageMimeType: file.type,
+          imageFileName: file.name
+        };
+
+        preview.innerHTML = `<img src="${e.target.result}" alt="Vista previa">`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    document.getElementById("sendBtn").addEventListener("click", async () => {
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const message = document.getElementById("message").value.trim();
+
+      result.className = "result";
+      result.textContent = "Enviando...";
+
+      try {
+        const body = {
+          name,
+          phone,
+          message
+        };
+
+        if (imageData) {
+          body.imageBase64 = imageData.imageBase64;
+          body.imageMimeType = imageData.imageMimeType;
+          body.imageFileName = imageData.imageFileName;
+        }
+
+        const response = await fetch(CLOUD_RUN_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          result.className = "result error";
+          result.textContent = "Error:\n" + JSON.stringify(data, null, 2);
+          return;
+        }
+
+        result.className = "result success";
+        result.textContent = "Envío correcto:\n" + JSON.stringify(data, null, 2);
+      } catch (error) {
+        result.className = "result error";
+        result.textContent = "Error de conexión:\n" + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
