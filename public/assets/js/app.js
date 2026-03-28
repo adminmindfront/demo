@@ -1,32 +1,54 @@
-import { PAVILIONS, PRODUCTS } from "./data.js";
+﻿import { PAVILIONS, PRODUCTS } from "./data.js";
 import { renderIcon } from "./icons.js";
+import { auth, database, googleProvider } from "./firebase.js";
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+import {
+  get,
+  ref,
+  serverTimestamp,
+  set,
+} from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app = document.querySelector("#app");
-const STORAGE_KEY = "mude-explorer-state-v1";
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
   maximumFractionDigits: 0,
 });
 
+const DEFAULT_USER_DATA = {
+  unlockedStamps: [],
+  cart: [],
+  purchases: [],
+};
+
 const timers = {
   arScanner: null,
   payment: null,
 };
 
-const persistedState = loadPersistedState();
-
 const state = {
   activeTab: "passport",
-  unlockedStamps: persistedState.unlockedStamps ?? [],
-  cart: persistedState.cart ?? [],
-  purchases: persistedState.purchases ?? [],
+  unlockedStamps: [],
+  cart: [],
+  purchases: [],
   showCheckout: false,
   showQRModal: null,
   showARScanner: null,
   arScanned: false,
   isProcessingPayment: false,
-  userId: persistedState.userId ?? generateExplorerId(),
+  user: null,
+  authStatus: "loading",
+  authMode: "login",
+  authMessage: "",
+  authError: "",
+  isAuthSubmitting: false,
   ai: {
     lang: "es",
     input: "",
@@ -39,30 +61,6 @@ const state = {
     ],
   },
 };
-
-function loadPersistedState() {
-  try {
-    const saved = window.localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : {};
-  } catch (error) {
-    return {};
-  }
-}
-
-function persistState() {
-  const snapshot = {
-    unlockedStamps: state.unlockedStamps,
-    cart: state.cart,
-    purchases: state.purchases,
-    userId: state.userId,
-  };
-
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
-}
-
-function generateExplorerId() {
-  return `#MUDE-${Math.floor(Math.random() * 9000) + 1000}`;
-}
 
 function escapeHtml(value) {
   return String(value)
@@ -93,7 +91,201 @@ function getCartTotal() {
   return state.cart.reduce((sum, item) => sum + item.price, 0);
 }
 
+function resetInteractiveState() {
+  clearTimeout(timers.arScanner);
+  clearTimeout(timers.payment);
+  state.activeTab = "passport";
+  state.unlockedStamps = [];
+  state.cart = [];
+  state.purchases = [];
+  state.showCheckout = false;
+  state.showQRModal = null;
+  state.showARScanner = null;
+  state.arScanned = false;
+  state.isProcessingPayment = false;
+}
+
+function sanitizeUnlockedStamps(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const allowedIds = new Set(PAVILIONS.map((item) => item.id));
+  return [...new Set(value.map((item) => Number(item)).filter((item) => allowedIds.has(item)))];
+}
+
+function sanitizeCart(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => getProductById(item?.id)).filter(Boolean);
+}
+
+function sanitizePurchaseItems(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      const catalogProduct = getProductById(item?.id);
+
+      if (catalogProduct) {
+        return catalogProduct;
+      }
+
+      const fallbackPrice = Number(item?.price);
+      return {
+        id: String(item?.id ?? `custom-${Date.now()}`),
+        name: String(item?.name ?? "Articulo"),
+        price: Number.isFinite(fallbackPrice) ? fallbackPrice : 0,
+        type: typeof item?.type === "string" ? item.type : "misc",
+      };
+    })
+    .filter((item) => item.name);
+}
+
+function sanitizePurchases(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((purchase) => {
+      const items = sanitizePurchaseItems(purchase?.items);
+      const rawTotal = Number(purchase?.total);
+      return {
+        id: String(purchase?.id ?? `TXN-${Date.now()}`),
+        items,
+        total: Number.isFinite(rawTotal)
+          ? rawTotal
+          : items.reduce((sum, item) => sum + item.price, 0),
+        date: String(purchase?.date ?? ""),
+      };
+    })
+    .filter((purchase) => purchase.id);
+}
+
+function sanitizeUserData(value) {
+  const input = value && typeof value === "object" ? value : {};
+
+  return {
+    unlockedStamps: sanitizeUnlockedStamps(input.unlockedStamps),
+    cart: sanitizeCart(input.cart),
+    purchases: sanitizePurchases(input.purchases),
+  };
+}
+
+function applyUserData(userData) {
+  const safeData = sanitizeUserData(userData);
+  state.unlockedStamps = safeData.unlockedStamps;
+  state.cart = safeData.cart;
+  state.purchases = safeData.purchases;
+}
+
+async function persistUserData() {
+  if (!state.user?.uid) {
+    return;
+  }
+
+  const payload = {
+    unlockedStamps: state.unlockedStamps,
+    cart: state.cart,
+    purchases: state.purchases,
+  };
+
+  try {
+    await set(ref(database, `users/${state.user.uid}/appData`), payload);
+  } catch (error) {
+    console.error("No se pudo guardar el estado del usuario en Firebase.", error);
+  }
+}
+
+async function hydrateUserState(firebaseUser) {
+  state.authStatus = "loading";
+  state.authError = "";
+  state.authMessage = "";
+  renderApp();
+
+  try {
+    const userRef = ref(database, `users/${firebaseUser.uid}`);
+    const snapshot = await get(userRef);
+    const existingData = snapshot.exists() ? snapshot.val() : {};
+    const safeAppData = sanitizeUserData(existingData.appData ?? DEFAULT_USER_DATA);
+
+    state.user = {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email || existingData.profile?.email || "",
+      displayName: firebaseUser.displayName || existingData.profile?.displayName || "",
+      photoURL: firebaseUser.photoURL || existingData.profile?.photoURL || "",
+    };
+
+    applyUserData(safeAppData);
+
+    await set(userRef, {
+      profile: {
+        uid: firebaseUser.uid,
+        email: state.user.email,
+        displayName: state.user.displayName,
+        photoURL: state.user.photoURL,
+        providerIds: firebaseUser.providerData
+          .map((item) => item.providerId)
+          .filter(Boolean),
+        createdAt: existingData.profile?.createdAt ?? serverTimestamp(),
+        lastLoginAt: serverTimestamp(),
+      },
+      appData: safeAppData,
+    });
+
+    state.authStatus = "authenticated";
+    renderApp();
+  } catch (error) {
+    console.error("No se pudo cargar la sesion del usuario.", error);
+    state.user = null;
+    resetInteractiveState();
+    state.authStatus = "unauthenticated";
+    state.authError =
+      "No se pudo cargar tu informacion desde Firebase. Revisa las reglas de base de datos y vuelve a intentar.";
+    renderApp();
+  }
+}
+
+function getAuthErrorMessage(error) {
+  const messages = {
+    "auth/invalid-email": "Ingresa un correo valido.",
+    "auth/missing-password": "Ingresa tu contrasena.",
+    "auth/weak-password": "La contrasena debe tener al menos 6 caracteres.",
+    "auth/email-already-in-use": "Ese correo ya esta registrado.",
+    "auth/invalid-credential": "Correo o contrasena incorrectos.",
+    "auth/wrong-password": "Correo o contrasena incorrectos.",
+    "auth/user-not-found": "No existe una cuenta con ese correo.",
+    "auth/popup-closed-by-user":
+      "Se cerro la ventana de Google antes de completar el acceso.",
+    "auth/popup-blocked":
+      "El navegador bloqueo la ventana emergente de Google. Permite popups e intenta otra vez.",
+    "auth/operation-not-allowed":
+      "Debes habilitar este metodo en Firebase Authentication.",
+    "auth/account-exists-with-different-credential":
+      "Ese correo ya existe con otro metodo de acceso.",
+    "auth/network-request-failed":
+      "No se pudo conectar con Firebase. Revisa tu conexion.",
+  };
+
+  return messages[error?.code] || "No fue posible completar la autenticacion.";
+}
+
 function renderApp() {
+  if (state.authStatus === "loading") {
+    app.innerHTML = renderAuthLoading();
+    return;
+  }
+
+  if (!state.user) {
+    app.innerHTML = renderAuthScreen();
+    return;
+  }
+
   app.innerHTML = `
     <div class="app-shell">
       ${state.activeTab !== "ai" ? renderHeader() : ""}
@@ -115,6 +307,116 @@ function renderApp() {
   }
 }
 
+function renderAuthLoading() {
+  return `
+    <section class="auth-shell">
+      <div class="auth-shell__backdrop"></div>
+      <div class="auth-panel auth-panel--loading">
+        <div class="auth-brand">
+          <div class="brand__mark">M</div>
+          <div>
+            <p class="brand__title">MUDE Explorer</p>
+            <p class="brand__subtitle">Museo del Desierto</p>
+          </div>
+        </div>
+        <div class="auth-loading">
+          <span class="auth-loading__dot"></span>
+          <p>Comprobando tu sesion...</p>
+        </div>
+      </div>
+    </section>
+  `;
+}
+
+function renderAuthScreen() {
+  const isSignup = state.authMode === "signup";
+
+  return `
+    <section class="auth-shell auth-shell--scrollable">
+      <div class="auth-shell__backdrop"></div>
+      <div class="auth-panel">
+        <div class="auth-brand">
+          <div class="brand__mark">M</div>
+          <div>
+            <p class="brand__title">MUDE Explorer</p>
+            <p class="brand__subtitle">Acceso obligatorio para visitar la app</p>
+          </div>
+        </div>
+
+        <div class="auth-copy">
+          <p class="eyebrow">Bienvenido</p>
+          <h1>Inicia sesion para guardar tu experiencia en Firebase</h1>
+          <p>
+            Tu correo, sellos, carrito y compras quedaran vinculados a tu cuenta.
+          </p>
+        </div>
+
+        <div class="auth-switch">
+          <button class="auth-switch__item ${!isSignup ? "is-active" : ""}" data-action="set-auth-mode" data-mode="login">
+            Iniciar sesion
+          </button>
+          <button class="auth-switch__item ${isSignup ? "is-active" : ""}" data-action="set-auth-mode" data-mode="signup">
+            Crear cuenta
+          </button>
+        </div>
+
+        <form class="auth-form" data-form="auth">
+          <label>
+            <span>Correo electronico</span>
+            <input type="email" name="email" placeholder="explorador@mude.com" required />
+          </label>
+          <label>
+            <span>Contrasena</span>
+            <input type="password" name="password" placeholder="Minimo 6 caracteres" required />
+          </label>
+          ${
+            isSignup
+              ? `
+                <label>
+                  <span>Confirmar contrasena</span>
+                  <input type="password" name="confirmPassword" placeholder="Repite tu contrasena" required />
+                </label>
+              `
+              : ""
+          }
+
+          ${
+            state.authError
+              ? `<p class="auth-feedback auth-feedback--error">${escapeHtml(state.authError)}</p>`
+              : ""
+          }
+          ${
+            state.authMessage
+              ? `<p class="auth-feedback auth-feedback--success">${escapeHtml(state.authMessage)}</p>`
+              : ""
+          }
+
+          <button class="primary-button primary-button--wide" type="submit" ${state.isAuthSubmitting ? "disabled" : ""}>
+            ${
+              state.isAuthSubmitting
+                ? "Procesando..."
+                : isSignup
+                  ? "Crear usuario"
+                  : "Entrar con correo"
+            }
+          </button>
+        </form>
+
+        <div class="auth-divider">
+          <span></span>
+          <p>o continua con</p>
+          <span></span>
+        </div>
+
+        <button class="google-button" data-action="google-login" ${state.isAuthSubmitting ? "disabled" : ""}>
+          <span class="google-button__icon">G</span>
+          Iniciar sesion con Google
+        </button>
+      </div>
+    </section>
+  `;
+}
+
 function renderHeader() {
   return `
     <header class="topbar">
@@ -125,16 +427,22 @@ function renderHeader() {
           <p class="brand__subtitle">Museo del Desierto</p>
         </div>
       </div>
-      ${
-        state.cart.length > 0
-          ? `
-            <div class="status-pill">
-              <span class="status-pill__dot"></span>
-              ${state.cart.length} en carrito
-            </div>
-          `
-          : ""
-      }
+      <div class="topbar__actions">
+        ${
+          state.cart.length > 0
+            ? `
+              <div class="status-pill">
+                <span class="status-pill__dot"></span>
+                ${state.cart.length} en carrito
+              </div>
+            `
+            : ""
+        }
+        <button class="ghost-button logout-button" data-action="logout">
+          ${renderIcon("log-out", { size: 16 })}
+          Salir
+        </button>
+      </div>
     </header>
   `;
 }
@@ -191,11 +499,15 @@ function renderPassportView() {
         </div>
         <div class="passport-card__profile">
           <div class="passport-card__avatar">
-            ${renderIcon("user", { size: 36 })}
+            ${
+              state.user?.photoURL
+                ? `<img src="${escapeHtml(state.user.photoURL)}" alt="Foto de perfil" />`
+                : renderIcon("user", { size: 36 })
+            }
           </div>
           <div>
             <h2 class="passport-card__title">Explorador MUDE</h2>
-            <p class="passport-card__id">ID: ${escapeHtml(state.userId)}</p>
+            <p class="passport-card__id">Usuario: ${escapeHtml(state.user?.email || "Sin correo")}</p>
             <div class="badge-inline">
               ${renderIcon("award", { size: 16 })}
               Rango: Paleontologo Novato
@@ -355,10 +667,16 @@ function renderAIGuideView() {
             <p>En linea</p>
           </div>
         </div>
-        <button class="ghost-button ghost-button--dark" data-action="toggle-lang">
-          ${renderIcon("globe", { size: 14 })}
-          ${state.ai.lang === "es" ? "ES" : "EN"}
-        </button>
+        <div class="chat-header__actions">
+          <button class="ghost-button ghost-button--dark" data-action="toggle-lang">
+            ${renderIcon("globe", { size: 14 })}
+            ${state.ai.lang === "es" ? "ES" : "EN"}
+          </button>
+          <button class="ghost-button ghost-button--dark" data-action="logout">
+            ${renderIcon("log-out", { size: 14 })}
+            Salir
+          </button>
+        </div>
       </header>
 
       <div class="chat-messages">
@@ -591,11 +909,88 @@ function renderQRCodeModal() {
   `;
 }
 
+async function handleAuthFormSubmit(event) {
+  event.preventDefault();
+
+  const formData = new FormData(event.target);
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  const confirmPassword = String(formData.get("confirmPassword") || "");
+
+  state.authError = "";
+  state.authMessage = "";
+
+  if (state.authMode === "signup" && password !== confirmPassword) {
+    state.authError = "Las contrasenas no coinciden.";
+    renderApp();
+    return;
+  }
+
+  state.isAuthSubmitting = true;
+  renderApp();
+
+  try {
+    if (state.authMode === "signup") {
+      await createUserWithEmailAndPassword(auth, email, password);
+      state.authMessage = "Tu cuenta fue creada correctamente.";
+    } else {
+      await signInWithEmailAndPassword(auth, email, password);
+    }
+  } catch (error) {
+    state.authError = getAuthErrorMessage(error);
+  } finally {
+    state.isAuthSubmitting = false;
+    renderApp();
+  }
+}
+
+async function handleGoogleLogin() {
+  state.authError = "";
+  state.authMessage = "";
+  state.isAuthSubmitting = true;
+  renderApp();
+
+  try {
+    await signInWithPopup(auth, googleProvider);
+  } catch (error) {
+    state.authError = getAuthErrorMessage(error);
+  } finally {
+    state.isAuthSubmitting = false;
+    renderApp();
+  }
+}
+
+async function handleLogout() {
+  state.authStatus = "loading";
+  renderApp();
+
+  try {
+    await signOut(auth);
+  } catch (error) {
+    state.authStatus = "authenticated";
+    state.authError = "No se pudo cerrar la sesion. Intenta de nuevo.";
+    renderApp();
+  }
+}
+
 function handleAction(action, dataset) {
   switch (action) {
     case "set-tab":
       state.activeTab = dataset.tab;
       renderApp();
+      return;
+    case "set-auth-mode":
+      state.authMode = dataset.mode === "signup" ? "signup" : "login";
+      state.authError = "";
+      state.authMessage = "";
+      state.isAuthSubmitting = false;
+      renderApp();
+      return;
+    case "google-login":
+      handleGoogleLogin();
+      return;
+    case "logout":
+      handleLogout();
       return;
     case "open-ar":
       openArScanner(dataset.pavilionId);
@@ -609,7 +1004,7 @@ function handleAction(action, dataset) {
         return;
       }
       state.cart = [...state.cart, product];
-      persistState();
+      persistUserData();
       renderApp();
       return;
     }
@@ -662,7 +1057,7 @@ function openArScanner(pavilionId) {
     state.arScanned = true;
     if (!state.unlockedStamps.includes(pavilion.id)) {
       state.unlockedStamps = [...state.unlockedStamps, pavilion.id];
-      persistState();
+      persistUserData();
     }
     renderApp();
   }, 2500);
@@ -686,7 +1081,7 @@ function handleCheckout(event) {
   renderApp();
 
   clearTimeout(timers.payment);
-  timers.payment = window.setTimeout(() => {
+  timers.payment = window.setTimeout(async () => {
     const newPurchase = {
       id: `TXN-${Math.floor(Math.random() * 1000000)
         .toString()
@@ -702,7 +1097,7 @@ function handleCheckout(event) {
     state.showCheckout = false;
     state.showQRModal = newPurchase;
     state.activeTab = "passport";
-    persistState();
+    await persistUserData();
     renderApp();
   }, 2000);
 }
@@ -792,6 +1187,10 @@ document.addEventListener("input", (event) => {
 });
 
 document.addEventListener("submit", (event) => {
+  if (event.target.matches("[data-form='auth']")) {
+    handleAuthFormSubmit(event);
+  }
+
   if (event.target.matches("[data-form='checkout']")) {
     handleCheckout(event);
   }
@@ -801,5 +1200,19 @@ document.addEventListener("submit", (event) => {
   }
 });
 
-persistState();
+onAuthStateChanged(auth, async (firebaseUser) => {
+  if (!firebaseUser) {
+    state.user = null;
+    resetInteractiveState();
+    state.authStatus = "unauthenticated";
+    state.isAuthSubmitting = false;
+    renderApp();
+    return;
+  }
+
+  await hydrateUserState(firebaseUser);
+  state.isAuthSubmitting = false;
+  renderApp();
+});
+
 renderApp();

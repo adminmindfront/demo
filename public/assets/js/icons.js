@@ -57,6 +57,11 @@ const ICONS = {
     <path d="M12 3a14 14 0 0 1 0 18"></path>
     <path d="M12 3a14 14 0 0 0 0 18"></path>
   `,
+  "log-out": `
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+    <path d="m16 17 5-5-5-5"></path>
+    <path d="M21 12H9"></path>
+  `,
   "check-circle": `
     <circle cx="12" cy="12" r="9"></circle>
     <path d="m8.5 12 2.5 2.5 4.5-5"></path>
