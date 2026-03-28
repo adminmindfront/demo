@@ -16,7 +16,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app = document.querySelector("#app");
-const EXPERIENCE_VERSION = "20260328b";
+const EXPERIENCE_VERSION = "20260328d";
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
@@ -53,6 +53,7 @@ const state = {
   authMessage: "",
   authError: "",
   isAuthSubmitting: false,
+  photoSection: "menu",
   ai: {
     lang: "es",
     input: "",
@@ -111,6 +112,12 @@ function buildPhotoBoothUrl() {
   return `./photo-booth.html?${params.toString()}`;
 }
 
+function buildPhotoGalleryUrl() {
+  const params = new URLSearchParams();
+  params.set("v", EXPERIENCE_VERSION);
+  return `./photo-gallery.html?${params.toString()}`;
+}
+
 function renderBrandMark() {
   return `
     <div class="brand__mark">
@@ -134,6 +141,7 @@ function resetInteractiveState() {
   state.showStampCelebration = null;
   state.arScanned = false;
   state.isProcessingPayment = false;
+  state.photoSection = "menu";
 }
 
 function sanitizeUnlockedStamps(value) {
@@ -601,15 +609,74 @@ function renderPassportView() {
 }
 
 function renderPhotoView() {
+  if (state.photoSection === "booth") {
+    return `
+      <section class="view view--photo">
+        <div class="photo-view-actions">
+          <button class="ghost-button" data-action="back-photo-menu">
+            ${renderIcon("chevron-right", { size: 16 })}
+            Volver
+          </button>
+        </div>
+        <div class="experience-card experience-card--photo">
+          <iframe
+            class="experience-frame experience-frame--photo"
+            src="${buildPhotoBoothUrl()}"
+            title="Cabina de foto MUDE"
+            allow="camera; microphone"
+          ></iframe>
+        </div>
+      </section>
+    `;
+  }
+
+  if (state.photoSection === "gallery") {
+    return `
+      <section class="view view--photo">
+        <div class="photo-view-actions">
+          <button class="ghost-button" data-action="back-photo-menu">
+            ${renderIcon("chevron-right", { size: 16 })}
+            Volver
+          </button>
+        </div>
+        <div class="experience-card experience-card--photo">
+          <iframe
+            class="experience-frame experience-frame--photo"
+            src="${buildPhotoGalleryUrl()}"
+            title="Galeria de fotos MUDE"
+            allow="camera; microphone"
+          ></iframe>
+        </div>
+      </section>
+    `;
+  }
+
   return `
     <section class="view view--photo">
-      <div class="experience-card experience-card--photo">
-        <iframe
-          class="experience-frame experience-frame--photo"
-          src="${buildPhotoBoothUrl()}"
-          title="Cabina de foto MUDE"
-          allow="camera; microphone"
-        ></iframe>
+      <div class="view-headline">
+        <p class="eyebrow">Recuerdos MUDE</p>
+        <h2>Foto MUDE</h2>
+        <p>Elige si quieres tomar una nueva foto o revisar las que ya guardaste en tu cuenta.</p>
+      </div>
+
+      <div class="stack-list">
+        <article class="photo-option-card">
+          <div class="photo-option-card__frame photo-option-card__frame--horizontal">
+            <img src="./assets/photo/frame/mude.png" alt="Marco horizontal MUDE" />
+          </div>
+          <button class="primary-button primary-button--wide" data-action="open-photo-booth">
+            Tomar Foto
+          </button>
+        </article>
+
+        <article class="photo-option-card">
+          <div class="photo-option-card__frame photo-option-card__frame--vertical">
+            <img src="./assets/photo/frame/mudev.png" alt="Marco vertical MUDE" />
+          </div>
+          <button class="ghost-button photo-option-card__button" data-action="open-photo-gallery">
+            Ver Mis Fotos
+          </button>
+        </article>
       </div>
     </section>
   `;
@@ -1113,6 +1180,21 @@ function handleAction(action, dataset) {
   switch (action) {
     case "set-tab":
       state.activeTab = dataset.tab;
+      if (dataset.tab === "photo") {
+        state.photoSection = "menu";
+      }
+      renderApp();
+      return;
+    case "open-photo-booth":
+      state.photoSection = "booth";
+      renderApp();
+      return;
+    case "open-photo-gallery":
+      state.photoSection = "gallery";
+      renderApp();
+      return;
+    case "back-photo-menu":
+      state.photoSection = "menu";
       renderApp();
       return;
     case "set-auth-mode":

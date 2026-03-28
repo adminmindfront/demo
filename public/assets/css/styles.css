@@ -760,6 +760,51 @@ img {
   min-height: min(76vh, 52rem);
 }
 
+.photo-view-actions {
+  display: flex;
+  justify-content: flex-start;
+  margin-bottom: 0.9rem;
+}
+
+.photo-option-card {
+  display: grid;
+  gap: 1rem;
+  padding: 1rem;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid rgba(75, 64, 54, 0.08);
+  box-shadow: 0 16px 30px rgba(43, 26, 15, 0.08);
+}
+
+.photo-option-card__frame {
+  margin: 0 auto;
+  overflow: hidden;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(75, 64, 54, 0.08);
+  background: #120d09;
+  box-shadow: 0 14px 24px rgba(43, 26, 15, 0.12);
+}
+
+.photo-option-card__frame img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-option-card__frame--horizontal {
+  width: min(100%, 18rem);
+  aspect-ratio: 16 / 9;
+}
+
+.photo-option-card__frame--vertical {
+  width: min(52vw, 10rem);
+  aspect-ratio: 9 / 16;
+}
+
+.photo-option-card__button {
+  width: 100%;
+}
+
 .experience-frame {
   width: 100%;
   height: 100%;

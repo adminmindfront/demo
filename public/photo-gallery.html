@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Mis Fotos MUDE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root { --earth-600:#8b5a2b; --earth-700:#6b4421; --stone-500:#857568; --stone-700:#4b4036; --green-500:#2f9e58; --red-500:#d84f44; }
+      * { box-sizing:border-box; } html,body { margin:0; min-height:100%; font-family:"Manrope",sans-serif; color:var(--stone-700); background:radial-gradient(circle at top, rgba(209,107,36,.14), transparent 28%), linear-gradient(180deg,#fbf6ef 0%,#f2e8dc 100%); }
+      .gallery-app { min-height:100vh; min-height:100svh; padding:.9rem; display:grid; gap:.8rem; align-content:start; }
+      .hero { padding:1rem 1rem .6rem; text-align:center; } .hero h1,.hero p,.status,.empty p,.sheet__copy p { margin:0; }
+      .hero h1 { font-family:"Cormorant Garamond",serif; color:var(--earth-600); font-size:2rem; line-height:.95; } .hero p,.status,.sheet__copy p { color:var(--stone-500); }
+      .status { text-align:center; min-height:1.3rem; } .status.error { color:var(--red-500); } .status.ok { color:var(--green-500); }
+      .gallery-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.8rem; }
+      .photo-card { padding:.45rem; border-radius:1.35rem; background:rgba(255,255,255,.88); border:1px solid rgba(75,64,54,.08); box-shadow:0 14px 26px rgba(43,26,15,.08); }
+      .photo-card img { width:100%; aspect-ratio:1/1; object-fit:cover; border-radius:1rem; }
+      .photo-card__meta { padding:.65rem .2rem .25rem; display:grid; gap:.2rem; font-size:.78rem; color:var(--stone-500); }
+      .empty { padding:2rem 1rem; text-align:center; border-radius:1.5rem; background:rgba(255,255,255,.78); border:1px solid rgba(75,64,54,.08); }
+      .sheet { position:fixed; inset:0; display:none; place-items:end center; padding:1rem; background:rgba(10,6,4,.5); backdrop-filter:blur(4px); }
+      .sheet.is-visible { display:grid; }
+      .sheet__card { width:min(100%,30rem); max-height:92vh; overflow:auto; border-radius:1.6rem; background:#fffaf4; padding:1rem; box-shadow:0 24px 48px rgba(0,0,0,.28); }
+      .sheet__image { width:100%; border-radius:1.1rem; object-fit:contain; max-height:50vh; background:#120d09; }
+      .sheet__copy { margin-top:.85rem; display:grid; gap:.35rem; text-align:center; }
+      .action-row { margin-top:.9rem; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.6rem; }
+      .action-btn { min-height:5.25rem; display:grid; place-items:center; border-radius:1.2rem; background:rgba(255,255,255,.92); border:2px solid transparent; box-shadow:0 10px 18px rgba(43,26,15,.08); transition:transform .18s ease,border-color .18s ease; }
+      .action-btn.is-active { transform:scale(1.04); border-color:rgba(139,90,43,.92); box-shadow:0 14px 24px rgba(43,26,15,.12),0 0 0 4px rgba(139,90,43,.12); }
+      .action-btn img { width:2.3rem; height:2.3rem; object-fit:contain; }
+      .phone-row { margin-top:.85rem; display:grid; grid-template-columns:auto minmax(0,1fr); gap:.6rem; }
+      .phone-row select,.phone-row input { width:100%; border:1px solid rgba(75,64,54,.14); background:#fff; color:var(--stone-700); border-radius:1rem; padding:.85rem .9rem; font-size:1rem; }
+      .sheet__actions { margin-top:.85rem; display:grid; gap:.6rem; }
+      .primary-btn,.ghost-btn { width:100%; border:0; border-radius:999px; padding:.9rem 1rem; font-weight:800; font-family:"Manrope",sans-serif; cursor:pointer; }
+      .primary-btn { color:#fff; background:linear-gradient(135deg,var(--green-500),#1d8d49); }
+      .ghost-btn { color:var(--stone-700); background:#fff; box-shadow:0 10px 18px rgba(43,26,15,.08); }
+      @media (max-width:520px) { .gallery-grid { grid-template-columns:1fr 1fr; } .action-btn { min-height:4.8rem; } .action-btn img { width:2rem; height:2rem; } }
+    </style>
+  </head>
+  <body>
+    <main class="gallery-app">
+      <header class="hero">
+        <h1>Mis Fotos MUDE</h1>
+        <p>Consulta tus fotos guardadas y vuelve a enviarlas cuando quieras.</p>
+      </header>
+      <p id="status" class="status"></p>
+      <section id="emptyState" class="empty is-hidden"><p>Aun no tienes fotos guardadas en tu cuenta.</p></section>
+      <section id="galleryGrid" class="gallery-grid"></section>
+    </main>
+
+    <div id="sheet" class="sheet" aria-hidden="true">
+      <div class="sheet__card">
+        <img id="sheetImage" class="sheet__image" alt="Foto MUDE" />
+        <div class="sheet__copy">
+          <p id="sheetDate"></p>
+          <p id="sheetEmail"></p>
+        </div>
+        <div class="action-row">
+          <button id="emailActionBtn" class="action-btn" type="button" aria-label="Correo"><img src="./assets/img/mail.png" alt="" aria-hidden="true" /></button>
+          <button id="whatsActionBtn" class="action-btn" type="button" aria-label="WhatsApp"><img src="./assets/img/wp.webp" alt="" aria-hidden="true" /></button>
+          <button id="downloadActionBtn" class="action-btn" type="button" aria-label="Descargar"><img src="./assets/ar/images/descargas.png" alt="" aria-hidden="true" /></button>
+        </div>
+        <div class="phone-row">
+          <select id="countryCodeSelect" aria-label="Prefijo internacional">
+            <option value="52" selected>🇲🇽 +52</option>
+            <option value="1">🇺🇸 +1</option>
+            <option value="57">🇨🇴 +57</option>
+            <option value="54">🇦🇷 +54</option>
+            <option value="34">🇪🇸 +34</option>
+          </select>
+          <input id="phoneInput" type="tel" inputmode="tel" maxlength="10" placeholder="8112212907" />
+        </div>
+        <div class="sheet__actions">
+          <button id="sheetSendBtn" class="primary-btn" type="button" disabled>Enviar</button>
+          <button id="sheetCloseBtn" class="ghost-btn" type="button">Cerrar</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      import { auth, storage } from "./assets/js/firebase.js";
+      import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+      import { getDownloadURL, getMetadata, listAll, ref as storageRef } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
+
+      const EMAIL_ENDPOINT_URL = "https://msj-573177942079.us-central1.run.app";
+      const WHATSAPP_ENDPOINT_URL = "https://whatsapp-780373663877.us-central1.run.app";
+
+      const statusEl = document.querySelector("#status");
+      const emptyState = document.querySelector("#emptyState");
+      const galleryGrid = document.querySelector("#galleryGrid");
+      const sheet = document.querySelector("#sheet");
+      const sheetImage = document.querySelector("#sheetImage");
+      const sheetDate = document.querySelector("#sheetDate");
+      const sheetEmail = document.querySelector("#sheetEmail");
+      const emailActionBtn = document.querySelector("#emailActionBtn");
+      const whatsActionBtn = document.querySelector("#whatsActionBtn");
+      const downloadActionBtn = document.querySelector("#downloadActionBtn");
+      const countryCodeSelect = document.querySelector("#countryCodeSelect");
+      const phoneInput = document.querySelector("#phoneInput");
+      const sheetSendBtn = document.querySelector("#sheetSendBtn");
+      const sheetCloseBtn = document.querySelector("#sheetCloseBtn");
+
+      let currentUser = null;
+      let selectedAction = "";
+      let selectedPhoto = null;
+
+      function setStatus(text, type = "") {
+        statusEl.textContent = text;
+        statusEl.className = "status" + (type ? " " + type : "");
+      }
+
+      function isValidPhone(value) {
+        return value.replace(/\D/g, "").length === 10;
+      }
+
+      function updateActionState() {
+        emailActionBtn.classList.toggle("is-active", selectedAction === "email");
+        whatsActionBtn.classList.toggle("is-active", selectedAction === "whatsapp");
+        downloadActionBtn.classList.toggle("is-active", selectedAction === "download");
+        sheetSendBtn.disabled =
+          !selectedAction ||
+          (selectedAction === "email" && !currentUser?.email) ||
+          (selectedAction === "whatsapp" && !isValidPhone(phoneInput.value));
+        sheetSendBtn.textContent =
+          selectedAction === "download"
+            ? "Descargar"
+            : selectedAction === "whatsapp"
+              ? "Enviar por WhatsApp"
+              : "Enviar por correo";
+      }
+
+      function formatDate(value) {
+        if (!value) return "Sin fecha";
+        return new Date(value).toLocaleString("es-MX");
+      }
+
+      async function fetchPhotoData(photo) {
+        const response = await fetch(photo.url, { cache: "no-store" });
+        if (!response.ok) throw new Error("No se pudo recuperar la foto desde Storage.");
+        const blob = await response.blob();
+        const dataUrl = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("No se pudo convertir la imagen."));
+          reader.readAsDataURL(blob);
+        });
+        return {
+          imageDataUrl: dataUrl,
+          imageBase64: dataUrl.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, ""),
+          imageMimeType: blob.type || "image/jpeg",
+        };
+      }
+
+      async function sendEmail(photo) {
+        const image = await fetchPhotoData(photo);
+        const response = await fetch(EMAIL_ENDPOINT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: currentUser.displayName || "Explorador MUDE",
+            phone: phoneInput.value.trim(),
+            email: currentUser.email,
+            subject: "Tu foto del MUDE",
+            message: `Hola.\n\nTe compartimos nuevamente tu foto del MUDE.\n\nFoto en Storage: ${photo.url}`,
+            imageBase64: image.imageBase64,
+            imageMimeType: image.imageMimeType,
+            imageFilename: photo.name,
+            storageUrl: photo.url,
+            storagePath: photo.path,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.message || "No se pudo enviar el correo.");
+      }
+
+      async function sendWhatsApp(photo) {
+        const image = await fetchPhotoData(photo);
+        const response = await fetch(WHATSAPP_ENDPOINT_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: currentUser.displayName || "Explorador MUDE",
+            phone: `${countryCodeSelect.value}${phoneInput.value.replace(/\D/g, "")}`,
+            message: `Hola.\n\nTe compartimos nuevamente tu foto del MUDE.\n\nFoto en Storage: ${photo.url}`,
+            imageBase64: image.imageDataUrl,
+            imageMimeType: image.imageMimeType,
+            imageFileName: photo.name,
+            storageUrl: photo.url,
+            storagePath: photo.path,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data?.ok === false) throw new Error(data.message || "No se pudo enviar por WhatsApp.");
+      }
+
+      function downloadPhoto(photo) {
+        const link = document.createElement("a");
+        link.href = photo.url;
+        link.download = photo.name;
+        document.body.append(link);
+        link.click();
+        link.remove();
+      }
+
+      function openSheet(photo) {
+        selectedPhoto = photo;
+        selectedAction = "";
+        sheetImage.src = photo.url;
+        sheetDate.textContent = formatDate(photo.timeCreated);
+        sheetEmail.textContent = currentUser?.email ? `Correo vinculado: ${currentUser.email}` : "";
+        phoneInput.value = "";
+        updateActionState();
+        sheet.classList.add("is-visible");
+        sheet.setAttribute("aria-hidden", "false");
+      }
+
+      function closeSheet() {
+        sheet.classList.remove("is-visible");
+        sheet.setAttribute("aria-hidden", "true");
+        selectedPhoto = null;
+        selectedAction = "";
+      }
+
+      async function loadPhotos(user) {
+        setStatus("Cargando tus fotos...");
+        galleryGrid.innerHTML = "";
+        emptyState.classList.add("is-hidden");
+        try {
+          const rootRef = storageRef(storage, `users/${user.uid}/photos`);
+          const listResult = await listAll(rootRef);
+          if (!listResult.items.length) {
+            emptyState.classList.remove("is-hidden");
+            setStatus("");
+            return;
+          }
+          const photos = await Promise.all(
+            listResult.items.map(async (item) => {
+              const [url, metadata] = await Promise.all([getDownloadURL(item), getMetadata(item)]);
+              return { name: item.name, path: item.fullPath, url, timeCreated: metadata.timeCreated };
+            })
+          );
+          photos.sort((a, b) => new Date(b.timeCreated || 0) - new Date(a.timeCreated || 0));
+          galleryGrid.innerHTML = photos.map((photo) => `
+            <button class="photo-card" type="button" data-photo-path="${photo.path}">
+              <img src="${photo.url}" alt="Foto guardada MUDE" />
+              <div class="photo-card__meta">
+                <strong>${photo.name}</strong>
+                <span>${formatDate(photo.timeCreated)}</span>
+              </div>
+            </button>
+          `).join("");
+          galleryGrid.dataset.photos = JSON.stringify(photos);
+          setStatus("");
+        } catch (error) {
+          console.error(error);
+          setStatus("No se pudieron cargar tus fotos.", "error");
+        }
+      }
+
+      onAuthStateChanged(auth, (user) => {
+        currentUser = user;
+        if (!user) {
+          setStatus("Necesitas iniciar sesion para ver tus fotos.", "error");
+          emptyState.classList.remove("is-hidden");
+          return;
+        }
+        loadPhotos(user);
+      });
+
+      galleryGrid.addEventListener("click", (event) => {
+        const card = event.target.closest("[data-photo-path]");
+        if (!card) return;
+        const photos = JSON.parse(galleryGrid.dataset.photos || "[]");
+        const photo = photos.find((item) => item.path === card.dataset.photoPath);
+        if (photo) openSheet(photo);
+      });
+
+      emailActionBtn.addEventListener("click", () => { selectedAction = "email"; updateActionState(); });
+      whatsActionBtn.addEventListener("click", () => { selectedAction = "whatsapp"; updateActionState(); });
+      downloadActionBtn.addEventListener("click", () => { selectedAction = "download"; updateActionState(); });
+      phoneInput.addEventListener("input", () => { phoneInput.value = phoneInput.value.replace(/\D/g, "").slice(0, 10); updateActionState(); });
+      countryCodeSelect.addEventListener("change", updateActionState);
+      sheetCloseBtn.addEventListener("click", closeSheet);
+      sheet.addEventListener("click", (event) => { if (event.target === sheet) closeSheet(); });
+      sheetSendBtn.addEventListener("click", async () => {
+        if (!selectedPhoto || !selectedAction) return;
+        try {
+          setStatus("Procesando accion...");
+          if (selectedAction === "email") await sendEmail(selectedPhoto);
+          if (selectedAction === "whatsapp") await sendWhatsApp(selectedPhoto);
+          if (selectedAction === "download") downloadPhoto(selectedPhoto);
+          setStatus(selectedAction === "download" ? "Descarga iniciada." : "Accion completada correctamente.", "ok");
+          if (selectedAction !== "download") closeSheet();
+        } catch (error) {
+          console.error(error);
+          setStatus(error.message || "No se pudo completar la accion.", "error");
+        }
+      });
+    </script>
+  </body>
+</html>

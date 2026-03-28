@@ -2,567 +2,90 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>Cabina de Foto MUDE</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap"
-      rel="stylesheet"
-    />
+    <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet" />
     <style>
-      :root {
-        --earth-600: #8b5a2b;
-        --earth-700: #6b4421;
-        --stone-50: #f7f5f2;
-        --stone-100: #ece7e1;
-        --stone-500: #857568;
-        --stone-700: #4b4036;
-        --green-500: #2f9e58;
-        --red-500: #d84f44;
-      }
-
-      * {
-        box-sizing: border-box;
-      }
-
-      html,
-      body {
-        margin: 0;
-        min-height: 100%;
-        font-family: "Manrope", sans-serif;
-        color: var(--stone-700);
-        background:
-          radial-gradient(circle at top, rgba(209, 107, 36, 0.14), transparent 28%),
-          linear-gradient(180deg, #fbf6ef 0%, #f2e8dc 100%);
-      }
-
-      .photo-app {
-        min-height: 100vh;
-        min-height: 100svh;
-        height: 100vh;
-        height: 100svh;
-        padding: 0.8rem;
-        display: grid;
-        grid-template-rows: auto auto auto auto auto 1fr auto;
-        gap: 0.22rem;
-        max-width: 54rem;
-        margin: 0 auto;
-        overflow: hidden;
-        align-content: start;
-      }
-
-      .photo-app.is-form-mode {
-        grid-template-rows: auto auto auto minmax(0, 1fr) auto;
-      }
-
-      .title,
-      .subtitle,
-      .status,
-      .footer {
-        margin: 0;
-      }
-
-      .title {
-        font-family: "Cormorant Garamond", serif;
-        font-size: 1.8rem;
-        color: var(--earth-600);
-        text-align: center;
-        line-height: 0.95;
-      }
-
-      .subtitle {
-        text-align: center;
-        color: var(--stone-500);
-        line-height: 1.35;
-        font-size: 0.9rem;
-      }
-
-      .stage {
-        position: relative;
-        width: 100%;
-        max-height: 38svh;
-        aspect-ratio: 16 / 8.4;
-        max-width: min(100%, 34rem);
-        margin: 0 auto;
-        border-radius: 1.6rem;
-        overflow: hidden;
-        background: #000;
-        border: 1px solid rgba(75, 64, 54, 0.1);
-        box-shadow: 0 20px 40px rgba(43, 26, 15, 0.14);
-      }
-
-      .photo-app.is-form-mode .stage {
-        display: none;
-      }
-
-      .stage.is-vertical {
-        width: min(42vw, 14rem);
-        max-width: 14rem;
-        max-height: none;
-        aspect-ratio: 9 / 16;
-        margin: 0 auto;
-      }
-
-      .stage video,
-      .stage img.preview,
-      .stage img.frame {
-        position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-      }
-
-      .stage img.frame {
-        z-index: 2;
-        pointer-events: none;
-      }
-
-      .stage img.preview {
-        z-index: 1;
-        display: none;
-      }
-
-      .stage.is-front-camera video {
-        transform: scaleX(-1);
-      }
-
-      .controls {
-        display: grid;
-        gap: 0.24rem;
-        max-width: 22rem;
-        margin: 0 auto;
-        margin-top: -0.02rem;
-      }
-
-      .photo-app.is-form-mode .controls {
-        display: none;
-      }
-
-      .camera-switch-wrap {
-        display: flex;
-        justify-content: center;
-        margin-top: 0.18rem;
-      }
-
-      .photo-app.is-form-mode .camera-switch-wrap {
-        display: none;
-      }
-
-      .camera-switch-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        width: 3.25rem;
-        height: 3.25rem;
-        padding: 0;
-        background: rgba(255, 255, 255, 0.92);
-        color: var(--stone-700);
-        box-shadow: 0 10px 18px rgba(43, 26, 15, 0.08);
-      }
-
-      .camera-switch-btn img {
-        width: 1.35rem;
-        height: 1.35rem;
-        object-fit: contain;
-        display: block;
-      }
-
-      .stage.is-vertical + .camera-switch-wrap {
-        margin-top: 0.32rem;
-      }
-
-      .orientation-toggle {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.55rem;
-      }
-
-      .capture-actions {
-        display: none;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.55rem;
-      }
-
-      .capture-actions.is-visible {
-        display: grid;
-      }
-
-      .orientation-btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.55rem;
-        background: rgba(255, 255, 255, 0.92);
-        color: var(--stone-700);
-        box-shadow: 0 10px 18px rgba(43, 26, 15, 0.08);
-      }
-
-      .orientation-btn.is-active {
-        color: white;
-        background: linear-gradient(135deg, var(--earth-600), var(--earth-700));
-      }
-
-      .orientation-btn svg {
-        width: 1rem;
-        height: 1rem;
-        flex-shrink: 0;
-      }
-
-      .mail-box {
-        background: rgba(255, 252, 247, 0.88);
-        border: 1px solid rgba(75, 64, 54, 0.08);
-        border-radius: 1.2rem;
-        padding: 0.85rem;
-        display: grid;
-        gap: 0.65rem;
-        box-shadow: 0 12px 24px rgba(43, 26, 15, 0.06);
-      }
-
-      .delivery-methods {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.65rem;
-      }
-
-      .delivery-option {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.6rem;
-        background: rgba(255, 255, 255, 0.9);
-        color: var(--stone-700);
-        box-shadow: 0 10px 18px rgba(43, 26, 15, 0.08);
-      }
-
-      .delivery-option.is-active {
-        color: white;
-        background: linear-gradient(135deg, var(--earth-600), var(--earth-700));
-      }
-
-      .delivery-option img {
-        width: 1.15rem;
-        height: 1.15rem;
-        object-fit: contain;
-        display: block;
-      }
-
-      .stage.is-review {
-        max-width: 9.5rem;
-        max-height: 7rem;
-        aspect-ratio: 16 / 9;
-      }
-
-      .stage.is-review.is-vertical {
-        width: min(28vw, 6.2rem);
-        max-width: 6.2rem;
-        aspect-ratio: 9 / 16;
-      }
-
-      .mail-preview {
-        display: none;
-        align-items: center;
-        gap: 0.8rem;
-        padding: 0.2rem 0.1rem 0.05rem;
-      }
-
-      .mail-preview.is-visible {
-        display: flex;
-      }
-
-      .mail-preview img {
-        width: 4rem;
-        height: 4rem;
-        object-fit: cover;
-        border-radius: 0.95rem;
-        border: 1px solid rgba(75, 64, 54, 0.12);
-        box-shadow: 0 10px 20px rgba(43, 26, 15, 0.08);
-        cursor: pointer;
-      }
-
-      .mail-preview p {
-        margin: 0;
-        font-size: 0.82rem;
-        color: var(--stone-500);
-        line-height: 1.4;
-      }
-
-      .field-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 0.75rem;
-      }
-
-      .field {
-        display: grid;
-        gap: 0.4rem;
-      }
-
-      .field.full {
-        grid-column: 1 / -1;
-      }
-
-      .is-hidden {
-        display: none !important;
-      }
-
-      label {
-        font-size: 0.78rem;
-        color: var(--stone-500);
-        font-weight: 700;
-      }
-
-      input[type="email"],
-      input[type="text"],
-      input[type="tel"] {
-        width: 100%;
-        border: 1px solid rgba(75, 64, 54, 0.14);
-        background: white;
-        color: var(--stone-700);
-        border-radius: 1rem;
-        padding: 0.85rem 0.95rem;
-        font-size: 1rem;
-        outline: none;
-      }
-
-      button {
-        border: 0;
-        border-radius: 999px;
-        padding: 0.8rem 1rem;
-        font-size: 0.9rem;
-        font-weight: 800;
-        cursor: pointer;
-      }
-
-      button:disabled {
-        opacity: 0.65;
-        cursor: not-allowed;
-      }
-
-      .btn-start,
-      .btn-retake,
-      .btn-again {
-        background: white;
-        color: var(--stone-700);
-        box-shadow: 0 10px 18px rgba(43, 26, 15, 0.08);
-      }
-
-      .btn-capture {
-        background: linear-gradient(135deg, #f39a43, #d16b24);
-        color: #24170d;
-      }
-
-      .btn-send,
-      .btn-continue {
-        background: linear-gradient(135deg, var(--green-500), #1d8d49);
-        color: white;
-      }
-
-      .status {
-        min-height: 1.4rem;
-        color: var(--stone-500);
-        text-align: center;
-        line-height: 1.5;
-      }
-
-      .status.error {
-        color: var(--red-500);
-      }
-
-      .status.ok {
-        color: var(--green-500);
-      }
-
-      .footer {
-        text-align: center;
-        color: var(--stone-500);
-        font-size: 0.72rem;
-      }
-
-      .flash {
-        position: absolute;
-        inset: 0;
-        background: #fff;
-        opacity: 0;
-        pointer-events: none;
-        z-index: 5;
-      }
-
-      .flash.active {
-        animation: camFlash 260ms ease-out;
-      }
-
-      .lightbox {
-        position: fixed;
-        inset: 0;
-        z-index: 25;
-        display: none;
-        place-items: center;
-        padding: 1rem;
-        background: rgba(10, 6, 4, 0.82);
-        backdrop-filter: blur(4px);
-      }
-
-      .lightbox.is-visible {
-        display: grid;
-      }
-
-      .lightbox__image {
-        width: min(92vw, 28rem);
-        max-height: 84vh;
-        object-fit: contain;
-        border-radius: 1.2rem;
-        box-shadow: 0 24px 50px rgba(0, 0, 0, 0.36);
-      }
-
-      .lightbox__close {
-        position: absolute;
-        top: 1rem;
-        right: 1rem;
-        border: 0;
-        width: 2.8rem;
-        height: 2.8rem;
-        padding: 0;
-        border-radius: 50%;
-        color: white;
-        background: rgba(255, 255, 255, 0.12);
-        font-size: 1.45rem;
-        line-height: 1;
-        cursor: pointer;
-      }
-
-      .stage img.preview.show {
-        display: block;
-        animation: shotZoom 520ms cubic-bezier(0.18, 0.7, 0.2, 1);
-        transform-origin: center center;
-      }
-
-      @keyframes camFlash {
-        0% { opacity: 0; }
-        25% { opacity: 0.95; }
-        100% { opacity: 0; }
-      }
-
-      @keyframes shotZoom {
-        0% {
-          transform: scale(0.88);
-          opacity: 0.2;
-        }
-        65% {
-          transform: scale(1.06);
-          opacity: 1;
-        }
-        100% {
-          transform: scale(1);
-          opacity: 1;
-        }
-      }
-
-      @media (max-width: 700px) {
-        .field-grid {
-          grid-template-columns: 1fr;
-        }
-
-        .photo-app {
-          padding: 0.7rem;
-        }
-
-        .title {
-          font-size: 1.55rem;
-        }
-
-        .subtitle {
-          font-size: 0.82rem;
-        }
-
-        .stage {
-          max-height: 32svh;
-        }
-
-        .camera-switch-btn {
-          width: 3rem;
-          height: 3rem;
-        }
-
-        .camera-switch-btn img {
-          width: 1.2rem;
-          height: 1.2rem;
-        }
-
-        .stage.is-vertical {
-          width: min(48vw, 13rem);
-          max-width: 13rem;
-        }
-
-        .stage.is-review {
-          max-width: 8.2rem;
-          max-height: 6rem;
-        }
-
-        .stage.is-review.is-vertical {
-          width: min(25vw, 5.4rem);
-          max-width: 5.4rem;
-        }
-
-        .mail-preview {
-          gap: 0.65rem;
-        }
-
-        .mail-preview img {
-          width: 3.3rem;
-          height: 3.3rem;
-        }
+      :root { --earth-600:#8b5a2b; --earth-700:#6b4421; --stone-500:#857568; --stone-700:#4b4036; --green-500:#2f9e58; --red-500:#d84f44; }
+      * { box-sizing:border-box; }
+      html,body { margin:0; min-height:100%; font-family:"Manrope",sans-serif; color:var(--stone-700); background:radial-gradient(circle at top, rgba(209,107,36,.14), transparent 28%), linear-gradient(180deg,#fbf6ef 0%,#f2e8dc 100%); }
+      .photo-app { min-height:100vh; min-height:100svh; height:100vh; height:100svh; padding:.8rem; display:grid; grid-template-rows:auto auto auto auto auto 1fr auto; gap:.22rem; max-width:54rem; margin:0 auto; overflow:hidden; align-content:start; }
+      .photo-app.is-form-mode { grid-template-rows:auto auto auto minmax(0,1fr) auto; }
+      .title,.subtitle,.status,.footer,.delivery-copy,.mail-preview p { margin:0; }
+      .title { font-family:"Cormorant Garamond",serif; font-size:1.8rem; color:var(--earth-600); text-align:center; line-height:.95; }
+      .subtitle,.delivery-copy,.mail-preview p { text-align:center; color:var(--stone-500); line-height:1.4; font-size:.84rem; }
+      .stage { position:relative; width:100%; max-height:38svh; aspect-ratio:16/8.4; max-width:min(100%,34rem); margin:0 auto; border-radius:1.6rem; overflow:hidden; background:#000; border:1px solid rgba(75,64,54,.1); box-shadow:0 20px 40px rgba(43,26,15,.14); }
+      .photo-app.is-form-mode .stage,.photo-app.is-form-mode .controls,.photo-app.is-form-mode .camera-switch-wrap { display:none; }
+      .stage.is-vertical { width:min(42vw,14rem); max-width:14rem; max-height:none; aspect-ratio:9/16; }
+      .stage video,.stage img.preview,.stage img.frame { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+      .stage img.frame { z-index:2; pointer-events:none; } .stage img.preview { z-index:1; display:none; } .stage.is-front-camera video { transform:scaleX(-1); }
+      .camera-switch-wrap { display:flex; justify-content:center; margin-top:.18rem; } .stage.is-vertical + .camera-switch-wrap { margin-top:.5rem; }
+      .camera-switch-btn { display:inline-flex; align-items:center; justify-content:center; width:3.25rem; height:3.25rem; padding:0; background:rgba(255,255,255,.92); box-shadow:0 10px 18px rgba(43,26,15,.08); border-radius:999px; }
+      .camera-switch-btn img { width:1.35rem; height:1.35rem; object-fit:contain; display:block; }
+      .controls,.contact-actions,.delivery-box { display:grid; gap:.24rem; max-width:22rem; margin:0 auto; } .controls { margin-top:-.02rem; }
+      .orientation-toggle,.capture-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
+      .delivery-methods { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
+      .capture-actions { display:none; } .capture-actions.is-visible { display:grid; }
+      .orientation-btn,.delivery-option { display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.92); color:var(--stone-700); box-shadow:0 10px 18px rgba(43,26,15,.08); }
+      .orientation-btn { gap:.55rem; } .orientation-btn.is-active { color:#fff; background:linear-gradient(135deg,var(--earth-600),var(--earth-700)); }
+      .orientation-btn svg { width:1rem; height:1rem; flex-shrink:0; }
+      .mail-box { background:rgba(255,252,247,.88); border:1px solid rgba(75,64,54,.08); border-radius:1.2rem; padding:.85rem; display:grid; gap:.7rem; box-shadow:0 12px 24px rgba(43,26,15,.06); }
+      .mail-preview { display:none; align-items:center; gap:.8rem; padding:.2rem .1rem .05rem; } .mail-preview.is-visible { display:flex; } .mail-preview img { width:4rem; height:4rem; object-fit:cover; border-radius:.95rem; border:1px solid rgba(75,64,54,.12); box-shadow:0 10px 20px rgba(43,26,15,.08); cursor:pointer; }
+      .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; } .field { display:grid; gap:.4rem; } .field.full { grid-column:1 / -1; }
+      .phone-input-wrap { display:grid; grid-template-columns:auto minmax(0,1fr); gap:.6rem; }
+      .phone-prefix { min-width:7.1rem; border:1px solid rgba(75,64,54,.14); background:#fff; color:var(--stone-700); border-radius:1rem; padding:.85rem .8rem; font-size:.95rem; outline:none; }
+      .delivery-option { min-height:6.25rem; border:2px solid transparent; transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease,opacity .18s ease; }
+      .delivery-option.is-active { transform:scale(1.06); border-color:rgba(139,90,43,.92); background:rgba(255,249,242,.98); box-shadow:0 16px 28px rgba(43,26,15,.14),0 0 0 4px rgba(139,90,43,.12); }
+      .delivery-option.is-disabled { opacity:.45; } .delivery-option img { width:2.5rem; height:2.5rem; object-fit:contain; display:block; }
+      .is-hidden { display:none !important; }
+      label { font-size:.78rem; color:var(--stone-500); font-weight:700; }
+      input[type="email"],input[type="text"],input[type="tel"] { width:100%; border:1px solid rgba(75,64,54,.14); background:#fff; color:var(--stone-700); border-radius:1rem; padding:.85rem .95rem; font-size:1rem; outline:none; }
+      button { border:0; border-radius:999px; padding:.8rem 1rem; font-size:.9rem; font-weight:800; cursor:pointer; }
+      button:disabled { opacity:.65; cursor:not-allowed; }
+      .btn-start,.btn-retake { background:#fff; color:var(--stone-700); box-shadow:0 10px 18px rgba(43,26,15,.08); }
+      .btn-capture { background:linear-gradient(135deg,#f39a43,#d16b24); color:#24170d; }
+      .btn-send,.btn-continue { background:linear-gradient(135deg,var(--green-500),#1d8d49); color:#fff; }
+      .status { min-height:1.4rem; color:var(--stone-500); text-align:center; line-height:1.5; } .status.error { color:var(--red-500); } .status.ok { color:var(--green-500); }
+      .footer { text-align:center; color:var(--stone-500); font-size:.72rem; }
+      .flash { position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; z-index:5; } .flash.active { animation:camFlash 260ms ease-out; }
+      .lightbox { position:fixed; inset:0; z-index:25; display:none; place-items:center; padding:1rem; background:rgba(10,6,4,.82); backdrop-filter:blur(4px); } .lightbox.is-visible { display:grid; }
+      .lightbox__image { width:min(92vw,28rem); max-height:84vh; object-fit:contain; border-radius:1.2rem; box-shadow:0 24px 50px rgba(0,0,0,.36); }
+      .lightbox__close { position:absolute; top:1rem; right:1rem; width:2.8rem; height:2.8rem; padding:0; border-radius:50%; color:#fff; background:rgba(255,255,255,.12); font-size:1.45rem; line-height:1; }
+      .stage img.preview.show { display:block; animation:shotZoom 520ms cubic-bezier(.18,.7,.2,1); transform-origin:center center; }
+      @keyframes camFlash { 0%{opacity:0;}25%{opacity:.95;}100%{opacity:0;} }
+      @keyframes shotZoom { 0%{transform:scale(.88);opacity:.2;}65%{transform:scale(1.06);opacity:1;}100%{transform:scale(1);opacity:1;} }
+      @media (max-width:700px) {
+        .field-grid { grid-template-columns:1fr; }
+        .photo-app { padding:.7rem; }
+        .title { font-size:1.55rem; }
+        .subtitle { font-size:.82rem; }
+        .stage { max-height:32svh; } .stage.is-vertical { width:min(48vw,13rem); max-width:13rem; }
+        .camera-switch-btn { width:3rem; height:3rem; } .camera-switch-btn img { width:1.2rem; height:1.2rem; }
+        .delivery-option { min-height:5.5rem; } .delivery-option img { width:2.2rem; height:2.2rem; }
       }
     </style>
   </head>
   <body>
     <main class="photo-app">
       <h1 class="title">Foto MUDE</h1>
-      <p class="subtitle">
-        Toma tu foto con el marco del museo y enviala por correo o WhatsApp.
-      </p>
-
+      <p class="subtitle">Toma tu foto con el marco del museo y elige si la quieres por correo o WhatsApp.</p>
       <section class="stage">
         <video id="video" autoplay playsinline muted></video>
         <img id="preview" class="preview" alt="Foto capturada" />
         <img id="frame" class="frame" src="./assets/photo/frame/mude.png" alt="Marco MUDE" />
         <div id="flash" class="flash"></div>
       </section>
-
       <div class="camera-switch-wrap">
-        <button
-          id="switchCameraBtn"
-          class="camera-switch-btn"
-          type="button"
-          aria-label="Cambiar camara"
-          title="Cambiar camara"
-        >
+        <button id="switchCameraBtn" class="camera-switch-btn" type="button" aria-label="Cambiar camara" title="Cambiar camara">
           <img src="./assets/ar/images/cambio.png" alt="" aria-hidden="true" />
         </button>
       </div>
-
       <section class="controls">
         <div class="orientation-toggle">
-          <button id="horizontalBtn" class="orientation-btn is-active" type="button" aria-pressed="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="7" width="18" height="10" rx="2"></rect>
-              <path d="M7 5v2"></path>
-              <path d="M17 17v2"></path>
-            </svg>
-            Horizontal
-          </button>
-          <button id="verticalBtn" class="orientation-btn" type="button" aria-pressed="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="7" y="3" width="10" height="18" rx="2"></rect>
-              <path d="M11 5h2"></path>
-              <path d="M11 19h2"></path>
-            </svg>
-            Vertical
-          </button>
+          <button id="horizontalBtn" class="orientation-btn is-active" type="button" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="M7 5v2"></path><path d="M17 17v2"></path></svg>Horizontal</button>
+          <button id="verticalBtn" class="orientation-btn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"></rect><path d="M11 5h2"></path><path d="M11 19h2"></path></svg>Vertical</button>
         </div>
         <button id="startBtn" class="btn-start" type="button">Activar camara</button>
         <button id="captureBtn" class="btn-capture is-hidden" type="button">Tomar foto</button>
@@ -571,68 +94,54 @@
           <button id="continueBtn" class="btn-continue" type="button">Continuar</button>
         </div>
       </section>
-
       <p id="status" class="status"></p>
-
       <section id="mailBox" class="mail-box is-hidden">
         <div id="mailPreview" class="mail-preview">
           <img id="mailPreviewImage" alt="Vista previa de la foto" />
-          <p>
-            Tu foto ya esta lista.
-            Elige como quieres recibirla y completa tus datos.
-          </p>
-        </div>
-        <div class="delivery-methods">
-          <button
-            id="emailOptionBtn"
-            class="delivery-option is-active"
-            type="button"
-            data-delivery="email"
-          >
-            <img src="./assets/img/mail.png" alt="" aria-hidden="true" />
-            Correo
-          </button>
-          <button
-            id="whatsappOptionBtn"
-            class="delivery-option"
-            type="button"
-            data-delivery="whatsapp"
-          >
-            <img src="./assets/img/wp.webp" alt="" aria-hidden="true" />
-            WhatsApp
-          </button>
+          <p>Tu foto ya esta lista. Completa tus datos para continuar con el envio.</p>
         </div>
         <div class="field-grid">
+          <div class="field"><label for="nameInput">Nombre</label><input id="nameInput" type="text" placeholder="Nombre del visitante" autocomplete="name" /></div>
           <div class="field">
-            <label for="nameInput">Nombre</label>
-            <input id="nameInput" type="text" placeholder="Nombre del visitante" autocomplete="name" />
-          </div>
-          <div id="phoneField" class="field is-hidden">
             <label for="phoneInput">Telefono</label>
-            <input id="phoneInput" type="tel" placeholder="5218441234567" inputmode="tel" autocomplete="tel" />
+            <div class="phone-input-wrap">
+              <select id="countryCodeSelect" class="phone-prefix" aria-label="Prefijo internacional">
+                <option value="52" selected>🇲🇽 +52</option>
+                <option value="1">🇺🇸 +1</option>
+                <option value="57">🇨🇴 +57</option>
+                <option value="54">🇦🇷 +54</option>
+                <option value="34">🇪🇸 +34</option>
+              </select>
+              <input id="phoneInput" type="tel" placeholder="8112212907" inputmode="tel" autocomplete="tel" maxlength="10" />
+            </div>
           </div>
-          <div id="emailField" class="field full">
-            <label for="emailInput">Correo</label>
-            <input id="emailInput" type="email" placeholder="correo@ejemplo.com" autocomplete="email" />
-          </div>
+          <div class="field full"><label for="emailInput">Correo</label><input id="emailInput" type="email" placeholder="correo@ejemplo.com" autocomplete="email" /></div>
         </div>
-        <button id="sendBtn" class="btn-send" type="button" disabled>Enviar por correo</button>
-        <button id="againBtn" class="btn-again is-hidden" type="button">Tomar otra</button>
+        <div class="contact-actions">
+          <button id="contactContinueBtn" class="btn-continue" type="button" disabled>Continuar</button>
+        </div>
+        <section id="deliveryBox" class="delivery-box is-hidden">
+          <p class="delivery-copy">Selecciona por donde deseas recibir tu foto. Puedes elegir una o ambas opciones.</p>
+          <div class="delivery-methods">
+            <button id="emailOptionBtn" class="delivery-option" type="button" aria-label="Enviar por correo"><img src="./assets/img/mail.png" alt="" aria-hidden="true" /></button>
+            <button id="whatsappOptionBtn" class="delivery-option" type="button" aria-label="Enviar por WhatsApp"><img src="./assets/img/wp.webp" alt="" aria-hidden="true" /></button>
+            <button id="downloadOptionBtn" class="delivery-option" type="button" aria-label="Descargar foto"><img src="./assets/ar/images/descargas.png" alt="" aria-hidden="true" /></button>
+          </div>
+          <button id="sendBtn" class="btn-send" type="button" disabled>Enviar</button>
+        </section>
       </section>
-
       <p class="footer">Museo del Desierto, Saltillo, Coahuila, Mexico.</p>
     </main>
-
     <div id="previewLightbox" class="lightbox" aria-hidden="true">
-      <button id="closeLightboxBtn" class="lightbox__close" type="button" aria-label="Cerrar vista completa">
-        X
-      </button>
+      <button id="closeLightboxBtn" class="lightbox__close" type="button" aria-label="Cerrar vista completa">X</button>
       <img id="lightboxImage" class="lightbox__image" alt="Vista completa de la foto" />
     </div>
-
     <canvas id="canvas" width="1920" height="1080" style="display:none;"></canvas>
+    <script type="module">
+      import { auth, storage } from "./assets/js/firebase.js";
+      import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-auth.js";
+      import { getDownloadURL, ref as storageRef, uploadString } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-storage.js";
 
-    <script>
       const EMAIL_ENDPOINT_URL = "https://msj-573177942079.us-central1.run.app";
       const WHATSAPP_ENDPOINT_URL = "https://whatsapp-780373663877.us-central1.run.app";
       const query = new URLSearchParams(window.location.search);
@@ -648,14 +157,14 @@
       const mailBox = document.querySelector("#mailBox");
       const mailPreview = document.querySelector("#mailPreview");
       const mailPreviewImage = document.querySelector("#mailPreviewImage");
+      const deliveryBox = document.querySelector("#deliveryBox");
+      const contactContinueBtn = document.querySelector("#contactContinueBtn");
+      const downloadOptionBtn = document.querySelector("#downloadOptionBtn");
       const emailOptionBtn = document.querySelector("#emailOptionBtn");
       const whatsappOptionBtn = document.querySelector("#whatsappOptionBtn");
-      const emailField = document.querySelector("#emailField");
-      const phoneField = document.querySelector("#phoneField");
       const previewLightbox = document.querySelector("#previewLightbox");
       const lightboxImage = document.querySelector("#lightboxImage");
       const closeLightboxBtn = document.querySelector("#closeLightboxBtn");
-
       const horizontalBtn = document.querySelector("#horizontalBtn");
       const verticalBtn = document.querySelector("#verticalBtn");
       const switchCameraBtn = document.querySelector("#switchCameraBtn");
@@ -665,19 +174,23 @@
       const repeatBtn = document.querySelector("#repeatBtn");
       const continueBtn = document.querySelector("#continueBtn");
       const sendBtn = document.querySelector("#sendBtn");
-      const againBtn = document.querySelector("#againBtn");
+      const countryCodeSelect = document.querySelector("#countryCodeSelect");
       const nameInput = document.querySelector("#nameInput");
       const phoneInput = document.querySelector("#phoneInput");
       const emailInput = document.querySelector("#emailInput");
 
       let stream = null;
+      let currentUser = auth.currentUser;
       let capturedDataUrl = "";
       let orientation = "horizontal";
       let cameraFacingMode = "environment";
-      let deliveryMethod = "email";
+      let isSending = false;
+      let selectedDeliveryMethods = new Set();
 
       nameInput.value = query.get("name") || "";
       emailInput.value = query.get("email") || "";
+
+      onAuthStateChanged(auth, (user) => { currentUser = user; });
 
       function setStatus(text, type = "") {
         statusEl.textContent = text;
@@ -688,58 +201,45 @@
         startBtn.classList.add("is-hidden");
         captureBtn.classList.add("is-hidden");
         captureActions.classList.remove("is-visible");
-        repeatBtn.classList.remove("is-hidden");
-        continueBtn.classList.remove("is-hidden");
-
         if (step === "start") startBtn.classList.remove("is-hidden");
         if (step === "capture") captureBtn.classList.remove("is-hidden");
         if (step === "continue") captureActions.classList.add("is-visible");
       }
 
-      function isValidEmail(value) {
-        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+      function isValidEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
+      function isValidPhone(value) { return value.replace(/\D/g, "").length === 10; }
+      function getWhatsAppNumber() { return `${countryCodeSelect.value}${phoneInput.value.replace(/\D/g, "")}`; }
+
+      function hasEnoughContactData() {
+        return !!nameInput.value.trim();
       }
 
-      function isValidPhone(value) {
-        const digits = value.replace(/\D/g, "");
-        return digits.length >= 8;
-      }
-
-      function hasValidContactData() {
-        if (!nameInput.value.trim()) {
-          return false;
-        }
-
-        if (deliveryMethod === "whatsapp") {
-          return isValidPhone(phoneInput.value.trim());
-        }
-
-        return isValidEmail(emailInput.value.trim());
-      }
-
-      function syncSendState() {
-        sendBtn.disabled = !(capturedDataUrl && hasValidContactData());
+      function syncContactContinueState() {
+        contactContinueBtn.disabled = !(capturedDataUrl && hasEnoughContactData());
       }
 
       function updateCameraModeUI() {
         stage.classList.toggle("is-front-camera", cameraFacingMode === "user");
       }
 
-      function updateDeliveryMethodUI() {
-        const useWhatsApp = deliveryMethod === "whatsapp";
-        emailOptionBtn.classList.toggle("is-active", !useWhatsApp);
-        whatsappOptionBtn.classList.toggle("is-active", useWhatsApp);
-        emailField.classList.toggle("is-hidden", useWhatsApp);
-        phoneField.classList.toggle("is-hidden", !useWhatsApp);
-        sendBtn.textContent = useWhatsApp ? "Enviar por WhatsApp" : "Enviar por correo";
-        syncSendState();
+      function updateDeliveryOptionsUI() {
+        const canEmail = isValidEmail(emailInput.value.trim());
+        const canWhatsApp = isValidPhone(phoneInput.value.trim());
+        if (!canEmail) selectedDeliveryMethods.delete("email");
+        if (!canWhatsApp) selectedDeliveryMethods.delete("whatsapp");
+        emailOptionBtn.classList.toggle("is-active", selectedDeliveryMethods.has("email"));
+        whatsappOptionBtn.classList.toggle("is-active", selectedDeliveryMethods.has("whatsapp"));
+        downloadOptionBtn.classList.toggle("is-active", selectedDeliveryMethods.has("download"));
+        emailOptionBtn.classList.toggle("is-disabled", !canEmail);
+        whatsappOptionBtn.classList.toggle("is-disabled", !canWhatsApp);
+        emailOptionBtn.disabled = !canEmail;
+        whatsappOptionBtn.disabled = !canWhatsApp;
+        downloadOptionBtn.disabled = false;
+        sendBtn.disabled = isSending || selectedDeliveryMethods.size === 0;
       }
 
       function stopCurrentStream() {
-        if (!stream) {
-          return;
-        }
-
+        if (!stream) return;
         stream.getTracks().forEach((track) => track.stop());
         stream = null;
         video.srcObject = null;
@@ -750,10 +250,7 @@
       }
 
       function openLightbox() {
-        if (!capturedDataUrl) {
-          return;
-        }
-
+        if (!capturedDataUrl) return;
         lightboxImage.src = capturedDataUrl;
         previewLightbox.classList.add("is-visible");
         previewLightbox.setAttribute("aria-hidden", "false");
@@ -768,9 +265,7 @@
       function updateOrientationUI() {
         const isVertical = orientation === "vertical";
         stage.classList.toggle("is-vertical", isVertical);
-        frame.src = isVertical
-          ? "./assets/photo/frame/mudev.png"
-          : "./assets/photo/frame/mude.png";
+        frame.src = isVertical ? "./assets/photo/frame/mudev.png" : "./assets/photo/frame/mude.png";
         frame.alt = isVertical ? "Marco MUDE vertical" : "Marco MUDE horizontal";
         horizontalBtn.classList.toggle("is-active", !isVertical);
         verticalBtn.classList.toggle("is-active", isVertical);
@@ -778,50 +273,32 @@
         verticalBtn.setAttribute("aria-pressed", String(isVertical));
       }
 
-      function switchOrientation(nextOrientation) {
-        if (orientation === nextOrientation) {
-          return;
-        }
+      function resetDeliveryStep() {
+        selectedDeliveryMethods = new Set();
+        deliveryBox.classList.add("is-hidden");
+        updateDeliveryOptionsUI();
+      }
 
+      function switchOrientation(nextOrientation) {
+        if (orientation === nextOrientation) return;
         orientation = nextOrientation;
         updateOrientationUI();
-
         if (capturedDataUrl) {
-          capturedDataUrl = "";
-          preview.src = "";
-          preview.style.display = "none";
-          preview.classList.remove("show");
-          video.style.display = "block";
-          stage.classList.remove("is-review");
-          setFormMode(false);
-          mailBox.classList.add("is-hidden");
-          mailPreview.classList.remove("is-visible");
-          mailPreviewImage.removeAttribute("src");
-          againBtn.classList.add("is-hidden");
-          showStep(stream ? "capture" : "start");
+          resetForAnotherPhoto();
           setStatus("Formato actualizado. Toma una nueva foto.");
-          syncSendState();
         }
       }
 
       async function startCamera(forceRestart = false) {
         try {
           setStatus("Solicitando permiso de camara...");
-          if (forceRestart) {
-            stopCurrentStream();
-          }
-
+          if (forceRestart) stopCurrentStream();
           if (!stream) {
             stream = await navigator.mediaDevices.getUserMedia({
-              video: {
-                facingMode: { ideal: cameraFacingMode },
-                width: { ideal: 1920 },
-                height: { ideal: 1080 },
-              },
+              video: { facingMode: { ideal: cameraFacingMode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
               audio: false,
             });
           }
-
           video.srcObject = stream;
           updateCameraModeUI();
           await video.play();
@@ -834,20 +311,11 @@
       }
 
       async function switchCamera() {
-        cameraFacingMode =
-          cameraFacingMode === "environment" ? "user" : "environment";
+        cameraFacingMode = cameraFacingMode === "environment" ? "user" : "environment";
         updateCameraModeUI();
-
-        if (capturedDataUrl) {
-          resetForAnotherPhoto();
-        }
-
+        if (capturedDataUrl) resetForAnotherPhoto();
         await startCamera(true);
-        setStatus(
-          cameraFacingMode === "environment"
-            ? "Camara trasera activa."
-            : "Camara frontal activa."
-        );
+        setStatus(cameraFacingMode === "environment" ? "Camara trasera activa." : "Camara frontal activa.");
       }
 
       function drawCover(sourceWidth, sourceHeight, destWidth, destHeight, drawFn) {
@@ -864,11 +332,9 @@
           setStatus("La camara aun no esta lista.", "error");
           return;
         }
-
         const ctx = canvas.getContext("2d");
         canvas.width = orientation === "vertical" ? 1080 : 1920;
         canvas.height = orientation === "vertical" ? 1920 : 1080;
-
         drawCover(video.videoWidth, video.videoHeight, canvas.width, canvas.height, (dx, dy, dw, dh) => {
           if (cameraFacingMode === "user") {
             ctx.save();
@@ -878,12 +344,9 @@
             ctx.restore();
             return;
           }
-
           ctx.drawImage(video, dx, dy, dw, dh);
         });
-
         ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
-
         capturedDataUrl = canvas.toDataURL("image/jpeg", 0.92);
         preview.src = capturedDataUrl;
         preview.classList.remove("show");
@@ -891,13 +354,11 @@
         video.style.display = "none";
         void preview.offsetWidth;
         preview.classList.add("show");
-
         flash.classList.remove("active");
         void flash.offsetWidth;
         flash.classList.add("active");
-
         showStep("continue");
-        setStatus("Foto capturada. Continúa para enviarla.");
+        setStatus("Foto capturada. Continua para enviarla.");
       }
 
       function continueToForm() {
@@ -905,14 +366,28 @@
           setStatus("Primero toma una foto.", "error");
           return;
         }
-
         setFormMode(true);
-        stage.classList.add("is-review");
         mailBox.classList.remove("is-hidden");
         mailPreview.classList.add("is-visible");
         mailPreviewImage.src = capturedDataUrl;
-        syncSendState();
-        setStatus("Completa los datos para enviar la foto.");
+        resetDeliveryStep();
+        syncContactContinueState();
+        setStatus("Completa tus datos y despues elige el canal de envio.");
+      }
+
+      function goToDeliverySelection() {
+        if (!nameInput.value.trim()) {
+          setStatus("Ingresa el nombre.", "error");
+          return;
+        }
+        if (!nameInput.value.trim()) {
+          setStatus("Ingresa el nombre para continuar.", "error");
+          return;
+        }
+        deliveryBox.classList.remove("is-hidden");
+        selectedDeliveryMethods = new Set();
+        updateDeliveryOptionsUI();
+        setStatus("Selecciona por donde deseas recibir tu foto.");
       }
 
       function resetForAnotherPhoto() {
@@ -921,150 +396,166 @@
         preview.style.display = "none";
         preview.classList.remove("show");
         video.style.display = "block";
-        stage.classList.remove("is-review");
         setFormMode(false);
-
         mailBox.classList.add("is-hidden");
         mailPreview.classList.remove("is-visible");
         mailPreviewImage.removeAttribute("src");
-        againBtn.classList.add("is-hidden");
-        sendBtn.disabled = true;
+        resetDeliveryStep();
+        isSending = false;
+        syncContactContinueState();
         showStep(stream ? "capture" : "start");
         setStatus(stream ? "Listo para otra foto." : "Activa la camara.");
       }
 
-      function buildMudeMessage(name, phone, email) {
-        return [
-          `Hola ${name},`,
-          "",
-          "Gracias por tu visita al Museo del Desierto (MUDE).",
-          "",
-          "Te compartimos tu fotografia tomada en el museo.",
-          "",
-          `Telefono registrado: ${phone}`,
-          `Correo registrado: ${email}`,
-          "",
-          "Esperamos verte pronto.",
-        ].join("\n");
+      function buildMailMessage(name, phone, email, downloadURL) {
+        return [`Hola ${name},`,"","Gracias por tu visita al Museo del Desierto (MUDE).","","Te compartimos tu fotografia tomada en el museo.","",`Telefono registrado: ${phone || "No proporcionado"}`,`Correo registrado: ${email || "No proporcionado"}`,`Foto en Storage: ${downloadURL}`,"","Esperamos verte pronto."].join("\n");
       }
 
-      function buildWhatsAppMessage(name, phone) {
-        return [
-          `Hola ${name},`,
-          "",
-          "Gracias por tu visita al Museo del Desierto (MUDE).",
-          "",
-          "Te compartimos tu fotografia tomada en el museo.",
-          "",
-          `Telefono registrado: ${phone}`,
-          "",
-          "Esperamos verte pronto.",
-        ].join("\n");
+      function buildWhatsAppMessage(name, phone, downloadURL) {
+        return [`Hola ${name},`,"","Gracias por tu visita al Museo del Desierto (MUDE).","","Te compartimos tu fotografia tomada en el museo.","",`Telefono registrado: ${phone}`,`Foto en Storage: ${downloadURL}`,"","Esperamos verte pronto."].join("\n");
       }
 
-      function dataUrlToBase64(dataUrl) {
-        return dataUrl.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, "");
+      function dataUrlToBase64(dataUrl) { return dataUrl.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, ""); }
+
+      function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ""));
+          reader.onerror = () => reject(new Error("No se pudo convertir la imagen desde Storage."));
+          reader.readAsDataURL(blob);
+        });
       }
 
-      async function sendPhotoByEmail(name, phone, email) {
+      async function waitForAuthenticatedUser() {
+        if (auth.currentUser) return auth.currentUser;
+        if (currentUser) return currentUser;
+        return new Promise((resolve) => {
+          const unsubscribe = onAuthStateChanged(auth, (user) => { unsubscribe(); resolve(user); });
+        });
+      }
+
+      async function storePhotoInFirebase() {
+        const user = await waitForAuthenticatedUser();
+        if (!user) throw new Error("Necesitas iniciar sesion para guardar la foto en Firebase.");
+        const fileName = `foto-mude-${Date.now()}-${orientation}.jpg`;
+        const path = `users/${user.uid}/photos/${fileName}`;
+        const photoRef = storageRef(storage, path);
+        await uploadString(photoRef, capturedDataUrl, "data_url", { contentType: "image/jpeg", customMetadata: { orientation, ownerUid: user.uid } });
+        const downloadURL = await getDownloadURL(photoRef);
+        const storageResponse = await fetch(downloadURL, { cache: "no-store" });
+        if (!storageResponse.ok) throw new Error("La foto se guardo en Firebase Storage, pero no se pudo recuperar para el envio.");
+        const blob = await storageResponse.blob();
+        const storedDataUrl = await blobToDataUrl(blob);
+        return { downloadURL, path, fileName, imageMimeType: blob.type || "image/jpeg", imageDataUrl: storedDataUrl, imageBase64: dataUrlToBase64(storedDataUrl) };
+      }
+
+      function toggleDeliveryMethod(method) {
+        if (method === "email" && !isValidEmail(emailInput.value.trim())) {
+          setStatus("Ingresa un correo valido para habilitar ese envio.", "error");
+          return;
+        }
+        if (method === "whatsapp" && !isValidPhone(phoneInput.value.trim())) {
+          setStatus("Ingresa un telefono valido para habilitar WhatsApp.", "error");
+          return;
+        }
+        if (selectedDeliveryMethods.has(method)) selectedDeliveryMethods.delete(method);
+        else selectedDeliveryMethods.add(method);
+        updateDeliveryOptionsUI();
+      }
+
+      async function sendPhotoByEmail(name, phone, email, storedPhoto) {
         const response = await fetch(EMAIL_ENDPOINT_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name,
-            phone,
-            email,
+            name, phone, email,
             subject: `Tu foto del MUDE, ${name}`,
-            message: buildMudeMessage(name, phone, email),
-            imageBase64: dataUrlToBase64(capturedDataUrl),
-            imageMimeType: "image/jpeg",
-            imageFilename: "foto-mude.jpg",
+            message: buildMailMessage(name, phone, email, storedPhoto.downloadURL),
+            imageBase64: storedPhoto.imageBase64,
+            imageMimeType: storedPhoto.imageMimeType,
+            imageFilename: storedPhoto.fileName,
+            storageUrl: storedPhoto.downloadURL,
+            storagePath: storedPhoto.path,
           }),
         });
-
         const data = await response.json().catch(() => ({}));
-        if (!response.ok) {
-          throw new Error(data.message || "No se pudo enviar el correo.");
-        }
+        if (!response.ok) throw new Error(data.message || "No se pudo enviar el correo.");
       }
 
-      async function sendPhotoByWhatsApp(name, phone) {
+      function downloadStoredPhoto(storedPhoto) {
+        const link = document.createElement("a");
+        link.href = storedPhoto.downloadURL;
+        link.download = storedPhoto.fileName;
+        document.body.append(link);
+        link.click();
+        link.remove();
+      }
+
+      async function sendPhotoByWhatsApp(name, phone, storedPhoto) {
         const response = await fetch(WHATSAPP_ENDPOINT_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name,
-            phone,
-            message: buildWhatsAppMessage(name, phone),
-            imageBase64: capturedDataUrl,
-            imageMimeType: "image/jpeg",
-            imageFileName: "foto-mude.jpg",
+            name, phone,
+            message: buildWhatsAppMessage(name, phone, storedPhoto.downloadURL),
+            imageBase64: storedPhoto.imageDataUrl,
+            imageMimeType: storedPhoto.imageMimeType,
+            imageFileName: storedPhoto.fileName,
+            storageUrl: storedPhoto.downloadURL,
+            storagePath: storedPhoto.path,
           }),
         });
-
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || data?.ok === false) {
-          throw new Error(data.message || "No se pudo enviar por WhatsApp.");
-        }
+        if (!response.ok || data?.ok === false) throw new Error(data.message || "No se pudo enviar por WhatsApp.");
       }
 
       async function sendPhoto() {
         const name = nameInput.value.trim();
         const phone = phoneInput.value.trim();
+        const fullPhone = getWhatsAppNumber();
         const email = emailInput.value.trim();
-
         if (!name) {
           setStatus("Ingresa el nombre.", "error");
           return;
         }
-
-        if (deliveryMethod === "whatsapp") {
-          if (!isValidPhone(phone)) {
-            setStatus("Ingresa un telefono valido para WhatsApp.", "error");
-            return;
-          }
-        } else if (!isValidEmail(email)) {
-          setStatus("Ingresa un correo valido.", "error");
+        if (selectedDeliveryMethods.size === 0) {
+          setStatus("Selecciona al menos una opcion de envio.", "error");
           return;
         }
-
-        sendBtn.disabled = true;
-        setStatus(
-          deliveryMethod === "whatsapp"
-            ? "Enviando foto por WhatsApp..."
-            : "Enviando foto por correo..."
-        );
-
+        isSending = true;
+        updateDeliveryOptionsUI();
+        setStatus("Guardando foto en Firebase Storage y preparando envio...");
         try {
-          if (deliveryMethod === "whatsapp") {
-            await sendPhotoByWhatsApp(name, phone);
-          } else {
-            await sendPhotoByEmail(name, phone, email);
+          const storedPhoto = await storePhotoInFirebase();
+          const tasks = [];
+          if (selectedDeliveryMethods.has("email")) tasks.push({ method: "email", label: "correo", promise: sendPhotoByEmail(name, phone, email, storedPhoto) });
+          if (selectedDeliveryMethods.has("whatsapp")) tasks.push({ method: "whatsapp", label: "WhatsApp", promise: sendPhotoByWhatsApp(name, fullPhone, storedPhoto) });
+          if (selectedDeliveryMethods.has("download")) tasks.push({ method: "download", label: "descarga", promise: Promise.resolve(downloadStoredPhoto(storedPhoto)) });
+          const results = await Promise.allSettled(tasks.map((task) => task.promise));
+          const success = [];
+          const failed = [];
+          results.forEach((result, index) => {
+            const task = tasks[index];
+            if (result.status === "fulfilled") { success.push(task.label); selectedDeliveryMethods.delete(task.method); }
+            else failed.push({ label: task.label, error: result.reason });
+          });
+          if (failed.length > 0) {
+            updateDeliveryOptionsUI();
+            if (success.length > 0) {
+              setStatus(`Se envio por ${success.join(" y ")}, pero fallo ${failed.map((item) => item.label).join(" y ")}.`, "error");
+              return;
+            }
+            throw failed[0].error;
           }
-
-          setStatus(
-            deliveryMethod === "whatsapp"
-              ? "Foto enviada correctamente por WhatsApp."
-              : "Foto enviada correctamente por correo.",
-            "ok"
-          );
-          window.parent.postMessage(
-            {
-              type: "mude-photo-sent",
-              deliveryMethod,
-              email,
-              phone,
-            },
-            window.location.origin
-          );
-          window.setTimeout(() => {
-            resetForAnotherPhoto();
-            setStatus("Foto enviada. Puedes tomar otra.", "ok");
-          }, 900);
+          setStatus("Foto enviada correctamente.", "ok");
+          window.parent.postMessage({ type: "mude-photo-sent", deliveryMethods: tasks.map((task) => task.method), email, phone, storagePath: storedPhoto.path, storageUrl: storedPhoto.downloadURL }, window.location.origin);
+          window.setTimeout(() => { resetForAnotherPhoto(); setStatus("Foto enviada. Puedes tomar otra.", "ok"); }, 900);
         } catch (error) {
           console.error(error);
           setStatus(error.message || "Error al enviar la foto.", "error");
-          syncSendState();
+        } finally {
+          isSending = false;
+          updateDeliveryOptionsUI();
         }
       }
 
@@ -1072,40 +563,28 @@
       setStatus("Activa la camara para comenzar.");
       updateOrientationUI();
       updateCameraModeUI();
-      updateDeliveryMethodUI();
-      syncSendState();
+      updateDeliveryOptionsUI();
+      syncContactContinueState();
 
       horizontalBtn.addEventListener("click", () => switchOrientation("horizontal"));
       verticalBtn.addEventListener("click", () => switchOrientation("vertical"));
-      emailOptionBtn.addEventListener("click", () => {
-        deliveryMethod = "email";
-        updateDeliveryMethodUI();
-      });
-      whatsappOptionBtn.addEventListener("click", () => {
-        deliveryMethod = "whatsapp";
-        updateDeliveryMethodUI();
-      });
+      emailOptionBtn.addEventListener("click", () => toggleDeliveryMethod("email"));
+      whatsappOptionBtn.addEventListener("click", () => toggleDeliveryMethod("whatsapp"));
+      downloadOptionBtn.addEventListener("click", () => toggleDeliveryMethod("download"));
       switchCameraBtn.addEventListener("click", switchCamera);
       startBtn.addEventListener("click", startCamera);
       captureBtn.addEventListener("click", capturePhoto);
       continueBtn.addEventListener("click", continueToForm);
       repeatBtn.addEventListener("click", resetForAnotherPhoto);
+      contactContinueBtn.addEventListener("click", goToDeliverySelection);
       sendBtn.addEventListener("click", sendPhoto);
-      againBtn.addEventListener("click", resetForAnotherPhoto);
       mailPreviewImage.addEventListener("click", openLightbox);
       closeLightboxBtn.addEventListener("click", closeLightbox);
-      previewLightbox.addEventListener("click", (event) => {
-        if (event.target === previewLightbox) {
-          closeLightbox();
-        }
-      });
-      [nameInput, phoneInput, emailInput].forEach((input) => {
-        input.addEventListener("input", syncSendState);
-      });
-
-      window.addEventListener("beforeunload", () => {
-        stopCurrentStream();
-      });
+      previewLightbox.addEventListener("click", (event) => { if (event.target === previewLightbox) closeLightbox(); });
+      phoneInput.addEventListener("input", () => { phoneInput.value = phoneInput.value.replace(/\D/g, "").slice(0, 10); syncContactContinueState(); updateDeliveryOptionsUI(); });
+      countryCodeSelect.addEventListener("change", updateDeliveryOptionsUI);
+      [nameInput, emailInput].forEach((input) => input.addEventListener("input", () => { syncContactContinueState(); updateDeliveryOptionsUI(); }));
+      window.addEventListener("beforeunload", () => { stopCurrentStream(); });
     </script>
   </body>
 </html>
