@@ -16,7 +16,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app = document.querySelector("#app");
-const EXPERIENCE_VERSION = "20260327h";
+const EXPERIENCE_VERSION = "20260327i";
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",

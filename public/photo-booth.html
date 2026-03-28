@@ -146,7 +146,7 @@
       .camera-switch-wrap {
         display: flex;
         justify-content: center;
-        margin-top: -0.24rem;
+        margin-top: 0.18rem;
       }
 
       .photo-app.is-form-mode .camera-switch-wrap {
@@ -173,13 +173,23 @@
       }
 
       .stage.is-vertical + .camera-switch-wrap {
-        margin-top: -0.18rem;
+        margin-top: 0.32rem;
       }
 
       .orientation-toggle {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.55rem;
+      }
+
+      .capture-actions {
+        display: none;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.55rem;
+      }
+
+      .capture-actions.is-visible {
+        display: grid;
       }
 
       .orientation-btn {
@@ -528,7 +538,10 @@
         </div>
         <button id="startBtn" class="btn-start" type="button">Activar camara</button>
         <button id="captureBtn" class="btn-capture is-hidden" type="button">Tomar foto</button>
-        <button id="continueBtn" class="btn-continue is-hidden" type="button">Continuar</button>
+        <div id="captureActions" class="capture-actions">
+          <button id="repeatBtn" class="btn-retake" type="button">Repetir</button>
+          <button id="continueBtn" class="btn-continue" type="button">Continuar</button>
+        </div>
       </section>
 
       <p id="status" class="status"></p>
@@ -595,6 +608,8 @@
       const switchCameraBtn = document.querySelector("#switchCameraBtn");
       const startBtn = document.querySelector("#startBtn");
       const captureBtn = document.querySelector("#captureBtn");
+      const captureActions = document.querySelector("#captureActions");
+      const repeatBtn = document.querySelector("#repeatBtn");
       const continueBtn = document.querySelector("#continueBtn");
       const sendBtn = document.querySelector("#sendBtn");
       const againBtn = document.querySelector("#againBtn");
@@ -618,11 +633,11 @@
       function showStep(step) {
         startBtn.classList.add("is-hidden");
         captureBtn.classList.add("is-hidden");
-        continueBtn.classList.add("is-hidden");
+        captureActions.classList.remove("is-visible");
 
         if (step === "start") startBtn.classList.remove("is-hidden");
         if (step === "capture") captureBtn.classList.remove("is-hidden");
-        if (step === "continue") continueBtn.classList.remove("is-hidden");
+        if (step === "continue") captureActions.classList.add("is-visible");
       }
 
       function isValidEmail(value) {
@@ -940,6 +955,7 @@
       startBtn.addEventListener("click", startCamera);
       captureBtn.addEventListener("click", capturePhoto);
       continueBtn.addEventListener("click", continueToForm);
+      repeatBtn.addEventListener("click", resetForAnotherPhoto);
       sendBtn.addEventListener("click", sendPhoto);
       againBtn.addEventListener("click", resetForAnotherPhoto);
       mailPreviewImage.addEventListener("click", openLightbox);
