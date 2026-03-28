@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enviar foto por WhatsApp con QR</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 680px;
+      margin: 40px auto;
+      background: #fff;
+      padding: 24px;
+      border-radius: 16px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      margin-top: 12px;
+      margin-bottom: 6px;
+      font-weight: bold;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    button {
+      margin-top: 18px;
+      border: none;
+      background: #25D366;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .preview, .qr-box {
+      margin-top: 18px;
+      text-align: center;
+    }
+
+    .preview img {
+      max-width: 100%;
+      max-height: 260px;
+      border-radius: 12px;
+      border: 1px solid #ddd;
+    }
+
+    .qr-box canvas, .qr-box img {
+      margin-top: 12px;
+    }
+
+    .result {
+      margin-top: 16px;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      white-space: pre-wrap;
+    }
+
+    .success {
+      background: #e9f9ef;
+      color: #146c2e;
+      border: 1px solid #b9e7c7;
+    }
+
+    .error {
+      background: #fdecec;
+      color: #a61b1b;
+      border: 1px solid #f2b8b8;
+    }
+
+    .open-link {
+      display: inline-block;
+      margin-top: 14px;
+      padding: 12px 18px;
+      background: #128C7E;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+
+    .steps {
+      margin-top: 20px;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 14px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Enviar foto por WhatsApp</h1>
+
+    <label for="name">Nombre</label>
+    <input type="text" id="name" placeholder="Ej. Omar" />
+
+    <label for="phone">Celular del usuario</label>
+    <input type="text" id="phone" placeholder="Ej. 528112212907" />
+
+    <label for="message">Mensaje a enviar</label>
+    <textarea id="message" placeholder="Ej. aquí está tu foto, gracias por tu visita"></textarea>
+
+    <label for="image">Imagen</label>
+    <input type="file" id="image" accept="image/*" />
+
+    <div class="preview" id="preview"></div>
+
+    <button id="sendBtn">Preparar envío + mostrar QR</button>
+
+    <div class="steps" id="steps" style="display:none;">
+      <strong>Sigue estos pasos:</strong><br>
+      1. Escanea el QR o abre el botón de WhatsApp.<br>
+      2. Envía el mensaje precargado <strong>“Envía mi Foto”</strong> al número del negocio.<br>
+      3. En cuanto el backend reciba ese mensaje, le enviará al usuario su texto y su foto.
+    </div>
+
+    <div class="qr-box" id="qrBox"></div>
+    <div id="result"></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script>
+    const CLOUD_RUN_URL = "https://whatsappqr-780373663877.us-central1.run.app";
+
+    const imageInput = document.getElementById("image");
+    const preview = document.getElementById("preview");
+    const result = document.getElementById("result");
+    const qrBox = document.getElementById("qrBox");
+    const steps = document.getElementById("steps");
+    const sendBtn = document.getElementById("sendBtn");
+
+    let imageData = null;
+
+    imageInput.addEventListener("change", () => {
+      const file = imageInput.files[0];
+      imageData = null;
+      preview.innerHTML = "";
+
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imageData = {
+          imageBase64: e.target.result,
+          imageMimeType: file.type,
+          imageFileName: file.name
+        };
+
+        preview.innerHTML = `<img src="${e.target.result}" alt="Vista previa">`;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    sendBtn.addEventListener("click", async () => {
+      const name = document.getElementById("name").value.trim();
+      const phone = document.getElementById("phone").value.trim();
+      const message = document.getElementById("message").value.trim();
+
+      result.className = "result";
+      result.textContent = "Preparando envío...";
+      qrBox.innerHTML = "";
+      steps.style.display = "none";
+
+      if (!name || !phone || !message || !imageData) {
+        result.className = "result error";
+        result.textContent = "Completa nombre, celular, mensaje y selecciona una imagen.";
+        return;
+      }
+
+      try {
+        const body = {
+          action: "queue_message",
+          name,
+          phone,
+          message,
+          imageBase64: imageData.imageBase64,
+          imageMimeType: imageData.imageMimeType,
+          imageFileName: imageData.imageFileName
+        };
+
+        const response = await fetch(CLOUD_RUN_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(body)
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.ok) {
+          result.className = "result error";
+          result.textContent = "Error:\n" + JSON.stringify(data, null, 2);
+          return;
+        }
+
+        result.className = "result success";
+        result.textContent =
+          "Solicitud guardada correctamente.\n\n" +
+          "Ahora el usuario debe enviar el mensaje precargado a WhatsApp para liberar el envío.\n\n" +
+          JSON.stringify(data, null, 2);
+
+        steps.style.display = "block";
+
+        const qrLink = data.qrLink;
+        const qrCanvas = document.createElement("canvas");
+        qrBox.appendChild(qrCanvas);
+
+        QRCode.toCanvas(qrCanvas, qrLink, { width: 260 }, function (error) {
+          if (error) console.error(error);
+        });
+
+        const linkBtn = document.createElement("a");
+        linkBtn.href = qrLink;
+        linkBtn.target = "_blank";
+        linkBtn.className = "open-link";
+        linkBtn.textContent = "Abrir WhatsApp";
+        qrBox.appendChild(document.createElement("br"));
+        qrBox.appendChild(linkBtn);
+
+      } catch (error) {
+        result.className = "result error";
+        result.textContent = "Error de conexión:\n" + error.message;
+      }
+    });
+  </script>
+</body>
+</html>
