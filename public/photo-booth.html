@@ -12,19 +12,20 @@
       * { box-sizing:border-box; }
       html,body { margin:0; min-height:100%; font-family:"Manrope",sans-serif; color:var(--stone-700); background:radial-gradient(circle at top, rgba(209,107,36,.14), transparent 28%), linear-gradient(180deg,#fbf6ef 0%,#f2e8dc 100%); }
       .photo-app { min-height:100vh; min-height:100svh; height:100vh; height:100svh; padding:.8rem; display:grid; grid-template-rows:auto auto auto auto auto 1fr auto; gap:.22rem; max-width:54rem; margin:0 auto; overflow:hidden; align-content:start; }
-      .photo-app.is-form-mode { grid-template-rows:auto auto auto minmax(0,1fr) auto; }
+      .photo-app.is-form-mode { grid-template-rows:auto auto auto minmax(0,1fr) auto; overflow-y:auto; overflow-x:hidden; -webkit-overflow-scrolling:touch; padding-bottom:1rem; }
       .title,.subtitle,.status,.footer,.delivery-copy,.mail-preview p { margin:0; }
       .title { font-family:"Cormorant Garamond",serif; font-size:1.8rem; color:var(--earth-600); text-align:center; line-height:.95; }
       .subtitle,.delivery-copy,.mail-preview p { text-align:center; color:var(--stone-500); line-height:1.4; font-size:.84rem; }
       .stage { position:relative; width:100%; max-height:38svh; aspect-ratio:16/8.4; max-width:min(100%,34rem); margin:0 auto; border-radius:1.6rem; overflow:hidden; background:#000; border:1px solid rgba(75,64,54,.1); box-shadow:0 20px 40px rgba(43,26,15,.14); }
-      .photo-app.is-form-mode .stage,.photo-app.is-form-mode .controls,.photo-app.is-form-mode .camera-switch-wrap { display:none; }
+      .photo-app.is-form-mode .stage,.photo-app.is-form-mode .controls { display:none; }
       .stage.is-vertical { width:min(42vw,14rem); max-width:14rem; max-height:none; aspect-ratio:9/16; }
       .stage video,.stage img.preview,.stage img.frame { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
       .stage img.frame { z-index:2; pointer-events:none; } .stage img.preview { z-index:1; display:none; } .stage.is-front-camera video { transform:scaleX(-1); }
-      .camera-switch-wrap { display:flex; justify-content:center; margin-top:.18rem; } .stage.is-vertical + .camera-switch-wrap { margin-top:.5rem; }
-      .camera-switch-btn { display:inline-flex; align-items:center; justify-content:center; width:3.25rem; height:3.25rem; padding:0; background:rgba(255,255,255,.92); box-shadow:0 10px 18px rgba(43,26,15,.08); border-radius:999px; }
+      .capture-toolbar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; align-items:center; }
+      .capture-toolbar.is-hidden { display:none; }
+      .camera-switch-btn { display:inline-flex; align-items:center; justify-content:center; width:100%; min-height:3.15rem; padding:0; background:rgba(255,255,255,.92); box-shadow:0 10px 18px rgba(43,26,15,.08); border-radius:999px; }
       .camera-switch-btn img { width:1.35rem; height:1.35rem; object-fit:contain; display:block; }
-      .controls,.contact-actions,.delivery-box { display:grid; gap:.24rem; max-width:22rem; margin:0 auto; } .controls { margin-top:-.02rem; }
+      .controls,.contact-actions { display:grid; gap:.3rem; max-width:22rem; margin:0 auto; } .controls { margin-top:.28rem; }
       .orientation-toggle,.capture-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
       .delivery-methods { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
       .capture-actions { display:none; } .capture-actions.is-visible { display:grid; }
@@ -62,7 +63,7 @@
         .title { font-size:1.55rem; }
         .subtitle { font-size:.82rem; }
         .stage { max-height:32svh; } .stage.is-vertical { width:min(48vw,13rem); max-width:13rem; }
-        .camera-switch-btn { width:3rem; height:3rem; } .camera-switch-btn img { width:1.2rem; height:1.2rem; }
+        .camera-switch-btn { min-height:3rem; } .camera-switch-btn img { width:1.2rem; height:1.2rem; }
         .delivery-option { min-height:5.5rem; } .delivery-option img { width:2.2rem; height:2.2rem; }
       }
     </style>
@@ -77,14 +78,12 @@
         <img id="frame" class="frame" src="./assets/photo/frame/mude.png" alt="Marco MUDE" />
         <div id="flash" class="flash"></div>
       </section>
-      <div class="camera-switch-wrap">
-        <button id="switchCameraBtn" class="camera-switch-btn" type="button" aria-label="Cambiar camara" title="Cambiar camara">
-          <img src="./assets/ar/images/cambio.png" alt="" aria-hidden="true" />
-        </button>
-      </div>
       <section class="controls">
-        <div class="orientation-toggle">
+        <div id="captureToolbar" class="capture-toolbar">
           <button id="horizontalBtn" class="orientation-btn is-active" type="button" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="10" rx="2"></rect><path d="M7 5v2"></path><path d="M17 17v2"></path></svg>Horizontal</button>
+          <button id="switchCameraBtn" class="camera-switch-btn" type="button" aria-label="Cambiar camara" title="Cambiar camara">
+            <img src="./assets/ar/images/cambio.png" alt="" aria-hidden="true" />
+          </button>
           <button id="verticalBtn" class="orientation-btn" type="button" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="7" y="3" width="10" height="18" rx="2"></rect><path d="M11 5h2"></path><path d="M11 19h2"></path></svg>Vertical</button>
         </div>
         <button id="startBtn" class="btn-start" type="button">Activar camara</button>
@@ -120,7 +119,11 @@
         <div class="contact-actions">
           <button id="contactContinueBtn" class="btn-continue" type="button" disabled>Continuar</button>
         </div>
-        <section id="deliveryBox" class="delivery-box is-hidden">
+      </section>
+      <p class="footer">Museo del Desierto, Saltillo, Coahuila, Mexico.</p>
+    </main>
+    <div id="deliveryModal" class="delivery-modal" aria-hidden="true">
+      <section id="deliveryBox" class="delivery-box">
           <p class="delivery-copy">Selecciona por donde deseas recibir tu foto. Puedes elegir una o ambas opciones.</p>
           <div class="delivery-methods">
             <button id="emailOptionBtn" class="delivery-option" type="button" aria-label="Enviar por correo"><img src="./assets/img/mail.png" alt="" aria-hidden="true" /></button>
@@ -128,10 +131,9 @@
             <button id="downloadOptionBtn" class="delivery-option" type="button" aria-label="Descargar foto"><img src="./assets/ar/images/descargas.png" alt="" aria-hidden="true" /></button>
           </div>
           <button id="sendBtn" class="btn-send" type="button" disabled>Enviar</button>
-        </section>
+          <button id="deliveryCloseBtn" class="delivery-box__close" type="button">Volver</button>
       </section>
-      <p class="footer">Museo del Desierto, Saltillo, Coahuila, Mexico.</p>
-    </main>
+    </div>
     <div id="previewLightbox" class="lightbox" aria-hidden="true">
       <button id="closeLightboxBtn" class="lightbox__close" type="button" aria-label="Cerrar vista completa">X</button>
       <img id="lightboxImage" class="lightbox__image" alt="Vista completa de la foto" />
@@ -157,7 +159,9 @@
       const mailBox = document.querySelector("#mailBox");
       const mailPreview = document.querySelector("#mailPreview");
       const mailPreviewImage = document.querySelector("#mailPreviewImage");
+      const deliveryModal = document.querySelector("#deliveryModal");
       const deliveryBox = document.querySelector("#deliveryBox");
+      const deliveryCloseBtn = document.querySelector("#deliveryCloseBtn");
       const contactContinueBtn = document.querySelector("#contactContinueBtn");
       const downloadOptionBtn = document.querySelector("#downloadOptionBtn");
       const emailOptionBtn = document.querySelector("#emailOptionBtn");
@@ -168,6 +172,7 @@
       const horizontalBtn = document.querySelector("#horizontalBtn");
       const verticalBtn = document.querySelector("#verticalBtn");
       const switchCameraBtn = document.querySelector("#switchCameraBtn");
+      const captureToolbar = document.querySelector("#captureToolbar");
       const startBtn = document.querySelector("#startBtn");
       const captureBtn = document.querySelector("#captureBtn");
       const captureActions = document.querySelector("#captureActions");
@@ -201,9 +206,13 @@
         startBtn.classList.add("is-hidden");
         captureBtn.classList.add("is-hidden");
         captureActions.classList.remove("is-visible");
+        captureToolbar.classList.remove("is-hidden");
         if (step === "start") startBtn.classList.remove("is-hidden");
         if (step === "capture") captureBtn.classList.remove("is-hidden");
-        if (step === "continue") captureActions.classList.add("is-visible");
+        if (step === "continue") {
+          captureToolbar.classList.add("is-hidden");
+          captureActions.classList.add("is-visible");
+        }
       }
 
       function isValidEmail(value) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value); }
@@ -275,7 +284,8 @@
 
       function resetDeliveryStep() {
         selectedDeliveryMethods = new Set();
-        deliveryBox.classList.add("is-hidden");
+        deliveryModal.classList.remove("is-visible");
+        deliveryModal.setAttribute("aria-hidden", "true");
         updateDeliveryOptionsUI();
       }
 
@@ -384,7 +394,8 @@
           setStatus("Ingresa el nombre para continuar.", "error");
           return;
         }
-        deliveryBox.classList.remove("is-hidden");
+        deliveryModal.classList.add("is-visible");
+        deliveryModal.setAttribute("aria-hidden", "false");
         selectedDeliveryMethods = new Set();
         updateDeliveryOptionsUI();
         setStatus("Selecciona por donde deseas recibir tu foto.");
@@ -578,6 +589,8 @@
       repeatBtn.addEventListener("click", resetForAnotherPhoto);
       contactContinueBtn.addEventListener("click", goToDeliverySelection);
       sendBtn.addEventListener("click", sendPhoto);
+      deliveryCloseBtn.addEventListener("click", resetDeliveryStep);
+      deliveryModal.addEventListener("click", (event) => { if (event.target === deliveryModal) resetDeliveryStep(); });
       mailPreviewImage.addEventListener("click", openLightbox);
       closeLightboxBtn.addEventListener("click", closeLightbox);
       previewLightbox.addEventListener("click", (event) => { if (event.target === previewLightbox) closeLightbox(); });
@@ -588,3 +601,7 @@
     </script>
   </body>
 </html>
+      .delivery-modal { position:fixed; inset:0; z-index:26; display:none; place-items:center; padding:1rem; background:rgba(10,6,4,.48); backdrop-filter:blur(4px); }
+      .delivery-modal.is-visible { display:grid; }
+      .delivery-box { width:min(100%,25rem); display:grid; gap:.75rem; padding:1rem; border-radius:1.4rem; background:#fffaf4; box-shadow:0 24px 48px rgba(0,0,0,.24); }
+      .delivery-box__close { width:100%; background:#fff; color:var(--stone-700); box-shadow:0 10px 18px rgba(43,26,15,.08); }
