@@ -108,6 +108,14 @@ function buildPhotoBoothUrl() {
   return `./photo-booth.html?${params.toString()}`;
 }
 
+function renderBrandMark() {
+  return `
+    <div class="brand__mark">
+      <img src="./assets/ar/images/mude.png" alt="Logo MUDE" />
+    </div>
+  `;
+}
+
 function resetInteractiveState() {
   clearTimeout(timers.arScanner);
   clearTimeout(timers.payment);
@@ -336,7 +344,7 @@ function renderAuthLoading() {
       <div class="auth-shell__backdrop"></div>
       <div class="auth-panel auth-panel--loading">
         <div class="auth-brand">
-          <div class="brand__mark">M</div>
+          ${renderBrandMark()}
           <div>
             <p class="brand__title">MUDE Explorer</p>
             <p class="brand__subtitle">Museo del Desierto</p>
@@ -359,7 +367,7 @@ function renderAuthScreen() {
       <div class="auth-shell__backdrop"></div>
       <div class="auth-panel">
         <div class="auth-brand">
-          <div class="brand__mark">M</div>
+          ${renderBrandMark()}
           <div>
             <p class="brand__title">MUDE Explorer</p>
             <p class="brand__subtitle">Acceso obligatorio para visitar la app</p>
@@ -446,7 +454,7 @@ function renderHeader() {
   return `
     <header class="topbar">
       <div class="brand">
-        <div class="brand__mark">M</div>
+        ${renderBrandMark()}
         <div>
           <p class="brand__title">MUDE Explorer</p>
           <p class="brand__subtitle">Museo del Desierto</p>
@@ -856,7 +864,7 @@ function renderARExperienceModal() {
           class="experience-frame"
           src="./ar-scanner.html"
           title="Escaner AR MUDE"
-          allow="camera; xr-spatial-tracking; fullscreen"
+          allow="autoplay; camera; xr-spatial-tracking; fullscreen"
         ></iframe>
       </section>
     </div>
@@ -883,7 +891,7 @@ function renderModelViewerModal() {
           class="experience-frame"
           src="./ar-viewer.html"
           title="Visor 3D y AR MUDE"
-          allow="camera; xr-spatial-tracking; fullscreen"
+          allow="autoplay; camera; xr-spatial-tracking; fullscreen"
         ></iframe>
       </section>
     </div>
