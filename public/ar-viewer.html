@@ -62,6 +62,47 @@
         margin-bottom: 0.2rem;
       }
 
+      .loading-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 18;
+        display: grid;
+        place-items: center;
+        background: rgba(8, 5, 3, 0.32);
+        backdrop-filter: blur(4px);
+        transition: opacity 180ms ease;
+      }
+
+      .loading-overlay.is-hidden {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .loading-box {
+        display: grid;
+        gap: 0.75rem;
+        justify-items: center;
+        padding: 1rem 1.2rem;
+        border-radius: 1.2rem;
+        background: rgba(20, 14, 10, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        color: white;
+      }
+
+      .loading-box p {
+        margin: 0;
+        font-size: 0.92rem;
+      }
+
+      .spinner {
+        width: 2.6rem;
+        height: 2.6rem;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.22);
+        border-top-color: #fff;
+        animation: spin 0.8s linear infinite;
+      }
+
       .viewer-brand {
         position: fixed;
         top: 5.8rem;
@@ -113,6 +154,12 @@
         box-shadow: 0 16px 30px rgba(18, 13, 9, 0.18);
       }
 
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
       @media (max-width: 520px) {
         .viewer-brand {
           top: 6.1rem;
@@ -138,6 +185,13 @@
 
     <div class="viewer-brand">
       <img src="./assets/ar/images/mude.png" alt="MUDE" />
+    </div>
+
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="loading-box">
+        <div class="spinner" aria-hidden="true"></div>
+        <p>Cargando modelo 3D...</p>
+      </div>
     </div>
 
     <model-viewer
@@ -167,6 +221,7 @@
       const viewer = document.querySelector("#viewer");
       const arBtn = document.querySelector("#arBtn");
       const closeBtn = document.querySelector("#closeBtn");
+      const loadingOverlay = document.querySelector("#loadingOverlay");
       const dinoAudio = new Audio("./assets/ar/audio/dino.mp3");
 
       dinoAudio.loop = true;
@@ -176,9 +231,16 @@
         messageText.textContent = text;
       }
 
+      function hideLoader() {
+        loadingOverlay.classList.add("is-hidden");
+      }
+
       function playAudioSafe() {
         dinoAudio.play().catch(() => {});
       }
+
+      viewer.addEventListener("load", hideLoader);
+      viewer.addEventListener("error", hideLoader);
 
       viewer.addEventListener("ar-status", (event) => {
         const status = event.detail.status;

@@ -28,8 +28,6 @@
       :root {
         --earth-600: #8b5a2b;
         --earth-700: #6b4421;
-        --stone-50: #f7f5f2;
-        --stone-200: #ddd4ca;
         --green-500: #2f9e58;
       }
 
@@ -79,6 +77,65 @@
         pointer-events: none;
       }
 
+      .start-gate {
+        position: fixed;
+        inset: 0;
+        z-index: 30;
+        display: grid;
+        place-items: center;
+        padding: 1.25rem;
+        background:
+          radial-gradient(circle at top, rgba(139, 90, 43, 0.18), transparent 28%),
+          rgba(6, 4, 3, 0.84);
+      }
+
+      .start-gate.is-hidden {
+        display: none;
+      }
+
+      .start-gate__card {
+        width: min(100%, 23rem);
+        padding: 1.25rem;
+        border-radius: 1.5rem;
+        text-align: center;
+        color: white;
+        background: rgba(20, 14, 10, 0.78);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(10px);
+        box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      }
+
+      .start-gate__card h1 {
+        margin: 0 0 0.55rem;
+        font-size: 1.45rem;
+        font-family: "Cormorant Garamond", serif;
+      }
+
+      .start-gate__card p {
+        margin: 0 0 1rem;
+        color: rgba(255, 255, 255, 0.82);
+        line-height: 1.45;
+      }
+
+      .start-gate__button {
+        width: 100%;
+        border: 0;
+        border-radius: 999px;
+        padding: 1rem 1.25rem;
+        color: white;
+        font-size: 1rem;
+        font-weight: 800;
+        font-family: "Manrope", sans-serif;
+        background: linear-gradient(135deg, var(--earth-600), var(--earth-700));
+        box-shadow: 0 18px 40px rgba(107, 68, 33, 0.3);
+        cursor: pointer;
+      }
+
+      .start-gate__button:disabled {
+        opacity: 0.7;
+        cursor: wait;
+      }
+
       .message {
         position: absolute;
         top: 1rem;
@@ -94,8 +151,7 @@
       }
 
       .message.is-hidden,
-      .frame.is-hidden,
-      .status-pill.is-hidden {
+      .frame.is-hidden {
         display: none !important;
       }
 
@@ -122,33 +178,17 @@
         color: white;
         font-size: 1rem;
         font-weight: 800;
+        font-family: "Manrope", sans-serif;
         background: linear-gradient(135deg, var(--green-500), #1d8d49);
         box-shadow: 0 18px 40px rgba(29, 141, 73, 0.32);
         display: none;
+        cursor: pointer;
       }
 
       .stamp-button.is-visible {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-      }
-
-      .status-pill {
-        position: absolute;
-        bottom: 5.6rem;
-        left: 50%;
-        transform: translateX(-50%);
-        padding: 0.55rem 0.8rem;
-        border-radius: 999px;
-        color: white;
-        background: rgba(20, 14, 10, 0.6);
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        backdrop-filter: blur(8px);
-        display: none;
-      }
-
-      .status-pill.is-visible {
-        display: inline-flex;
       }
 
       .frame {
@@ -186,17 +226,24 @@
   <body>
     <div id="container"></div>
 
+    <div class="start-gate" id="startGate">
+      <div class="start-gate__card">
+        <h1>Escaner AR MUDE</h1>
+        <p>Toca para activar la camara y habilitar el audio del dinosaurio.</p>
+        <button id="startExperienceBtn" class="start-gate__button" type="button">
+          Iniciar experiencia
+        </button>
+      </div>
+    </div>
+
     <div class="hud">
       <div class="message" id="message">
         <strong>Escaner AR MUDE</strong>
         <span id="messageText">Apunta al target del pabellon "El desierto y su pasado".</span>
       </div>
       <div class="frame" aria-hidden="true"></div>
-      <div class="status-pill is-hidden" id="targetStatus"></div>
       <div class="controls">
-        <button id="stampButton" class="stamp-button" type="button">
-          Obtener Sello
-        </button>
+        <button id="stampButton" class="stamp-button" type="button">Obtener Sello</button>
       </div>
     </div>
 
@@ -213,9 +260,10 @@
       const container = document.querySelector("#container");
       const messageText = document.querySelector("#messageText");
       const message = document.querySelector("#message");
-      const targetStatus = document.querySelector("#targetStatus");
       const stampButton = document.querySelector("#stampButton");
       const frame = document.querySelector(".frame");
+      const startGate = document.querySelector("#startGate");
+      const startExperienceBtn = document.querySelector("#startExperienceBtn");
 
       const clock = new THREE.Clock();
       const dinoAudio = new Audio(AUDIO_URL);
@@ -223,6 +271,7 @@
       dinoAudio.preload = "auto";
       dinoAudio.muted = true;
       dinoAudio.playsInline = true;
+      dinoAudio.load();
 
       let mindarThree;
       let renderer;
@@ -230,6 +279,7 @@
       let camera;
       let mixer;
       let audioPrimed = false;
+      let isStarting = false;
 
       function setMessage(text) {
         messageText.textContent = text;
@@ -239,18 +289,20 @@
         if (found) {
           message.classList.add("is-hidden");
           frame.classList.add("is-hidden");
-          targetStatus.classList.add("is-hidden");
           return;
         }
 
         message.classList.remove("is-hidden");
         frame.classList.remove("is-hidden");
-        targetStatus.classList.add("is-hidden");
+      }
+
+      function reportAudioIssue(context, error) {
+        console.warn(`[MUDE audio] ${context}`, error?.name || "", error?.message || "");
       }
 
       async function primeAudio() {
         if (audioPrimed) {
-          return;
+          return true;
         }
 
         try {
@@ -259,8 +311,11 @@
           dinoAudio.currentTime = 0;
           dinoAudio.muted = false;
           audioPrimed = true;
-        } catch (_) {
+          return true;
+        } catch (error) {
+          reportAudioIssue("No se pudo preparar el audio", error);
           dinoAudio.muted = false;
+          throw error;
         }
       }
 
@@ -271,7 +326,12 @@
       function playDinoAudio() {
         dinoAudio.muted = false;
         dinoAudio.currentTime = 0;
-        dinoAudio.play().catch(() => {});
+        dinoAudio.play().catch((error) => {
+          reportAudioIssue(
+            "El navegador bloqueo la reproduccion al detectar el target",
+            error
+          );
+        });
       }
 
       async function addFloatingImage(anchor, modelRoot) {
@@ -294,7 +354,7 @@
 
         sprite.scale.set(height * aspect, height, 1);
         sprite.center.set(0.5, 1);
-        sprite.position.set(center.x, box.min.y - size.y * 0.14, center.z + 0.01);
+        sprite.position.set(center.x, box.min.y - size.y * 0.06, center.z + 0.01);
         sprite.renderOrder = 999;
         anchor.group.add(sprite);
       }
@@ -364,10 +424,10 @@
           setScanningState(false);
           setMessage("Apunta nuevamente a la imagen target.");
           dinoAudio.pause();
+          dinoAudio.currentTime = 0;
         };
 
         await buildModel(anchor);
-        await primeAudio();
         await mindarThree.start();
         setScanningState(false);
 
@@ -381,7 +441,10 @@
       }
 
       async function stopAR() {
-        if (!mindarThree) return;
+        if (!mindarThree) {
+          return;
+        }
+
         mindarThree.stop();
         renderer?.setAnimationLoop(null);
         dinoAudio.pause();
@@ -396,18 +459,38 @@
         );
       });
 
-      window.addEventListener("pointerdown", unlockAudio, { once: true });
-      window.addEventListener("touchstart", unlockAudio, { once: true });
-      window.addEventListener("beforeunload", stopAR);
-      startAR().catch((error) => {
-        console.error(error);
-        if (error?.name === "NotReadableError") {
-          setMessage("La camara esta en uso por otra aplicacion o pestaña. Cierra la otra camara e intenta de nuevo.");
+      startExperienceBtn.addEventListener("click", async () => {
+        if (isStarting) {
           return;
         }
 
-        setMessage("No se pudo iniciar la experiencia AR. Revisa permisos de camara.");
+        isStarting = true;
+        startExperienceBtn.disabled = true;
+        startExperienceBtn.textContent = "Abriendo camara...";
+
+        try {
+          await primeAudio();
+          await startAR();
+          startGate.classList.add("is-hidden");
+        } catch (error) {
+          console.error(error);
+          if (error?.name === "NotReadableError") {
+            setMessage(
+              "La camara esta en uso por otra aplicacion o pestaña. Cierra la otra camara e intenta de nuevo."
+            );
+          } else {
+            setMessage("No se pudo iniciar la experiencia AR. Revisa permisos de camara.");
+          }
+        } finally {
+          isStarting = false;
+          startExperienceBtn.disabled = false;
+          startExperienceBtn.textContent = "Iniciar experiencia";
+        }
       });
+
+      window.addEventListener("pointerdown", unlockAudio, { once: true });
+      window.addEventListener("touchstart", unlockAudio, { once: true });
+      window.addEventListener("beforeunload", stopAR);
     </script>
   </body>
 </html>
