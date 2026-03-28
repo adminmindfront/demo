@@ -16,7 +16,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app = document.querySelector("#app");
-const EXPERIENCE_VERSION = "20260328f";
+const EXPERIENCE_VERSION = "20260328g";
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
@@ -1468,6 +1468,13 @@ window.addEventListener("message", (event) => {
 
   if (event.data?.type === "mude-close-viewer") {
     state.showModelViewer = null;
+    renderApp();
+    return;
+  }
+
+  if (event.data?.type === "mude-photo-sent") {
+    state.activeTab = "photo";
+    state.photoSection = "menu";
     renderApp();
   }
 });

@@ -110,11 +110,11 @@
             <label for="phoneInput">Telefono</label>
             <div class="phone-input-wrap">
               <select id="countryCodeSelect" class="phone-prefix" aria-label="Prefijo internacional">
-                <option value="52" selected>🇲🇽 +52</option>
-                <option value="1">🇺🇸 +1</option>
-                <option value="57">🇨🇴 +57</option>
-                <option value="54">🇦🇷 +54</option>
-                <option value="34">🇪🇸 +34</option>
+                <option value="52" selected>MX +52</option>
+                <option value="1">US +1</option>
+                <option value="57">CO +57</option>
+                <option value="54">AR +54</option>
+                <option value="34">ES +34</option>
               </select>
               <input id="phoneInput" type="tel" placeholder="8112345678" inputmode="tel" autocomplete="tel" maxlength="10" />
             </div>
@@ -236,6 +236,12 @@
         stage.classList.toggle("is-front-camera", cameraFacingMode === "user");
       }
 
+      function updateSendButtonLabel() {
+        const hasDownload = selectedDeliveryMethods.has("download");
+        const hasDelivery = selectedDeliveryMethods.has("email") || selectedDeliveryMethods.has("whatsapp");
+        sendBtn.textContent = hasDownload && hasDelivery ? "Enviar y Descargar" : hasDownload ? "Descargar" : "Enviar";
+      }
+
       function updateDeliveryOptionsUI() {
         const canEmail = isValidEmail(emailInput.value.trim());
         const canWhatsApp = isValidPhone(phoneInput.value.trim());
@@ -250,6 +256,7 @@
         whatsappOptionBtn.disabled = !canWhatsApp;
         downloadOptionBtn.disabled = false;
         sendBtn.disabled = isSending || selectedDeliveryMethods.size === 0;
+        updateSendButtonLabel();
       }
 
       function stopCurrentStream() {
@@ -433,15 +440,6 @@
 
       function dataUrlToBase64(dataUrl) { return dataUrl.replace(/^data:image\/[a-zA-Z0-9+.-]+;base64,/, ""); }
 
-      function blobToDataUrl(blob) {
-        return new Promise((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ""));
-          reader.onerror = () => reject(new Error("No se pudo convertir la imagen desde Storage."));
-          reader.readAsDataURL(blob);
-        });
-      }
-
       async function waitForAuthenticatedUser() {
         if (auth.currentUser) return auth.currentUser;
         if (currentUser) return currentUser;
@@ -458,11 +456,14 @@
         const photoRef = storageRef(storage, path);
         await uploadString(photoRef, capturedDataUrl, "data_url", { contentType: "image/jpeg", customMetadata: { orientation, ownerUid: user.uid } });
         const downloadURL = await getDownloadURL(photoRef);
-        const storageResponse = await fetch(downloadURL, { cache: "no-store" });
-        if (!storageResponse.ok) throw new Error("La foto se guardo en Firebase Storage, pero no se pudo recuperar para el envio.");
-        const blob = await storageResponse.blob();
-        const storedDataUrl = await blobToDataUrl(blob);
-        return { downloadURL, path, fileName, imageMimeType: blob.type || "image/jpeg", imageDataUrl: storedDataUrl, imageBase64: dataUrlToBase64(storedDataUrl) };
+        return {
+          downloadURL,
+          path,
+          fileName,
+          imageMimeType: "image/jpeg",
+          imageDataUrl: capturedDataUrl,
+          imageBase64: dataUrlToBase64(capturedDataUrl),
+        };
       }
 
       function toggleDeliveryMethod(method) {
@@ -500,7 +501,7 @@
 
       function downloadStoredPhoto(storedPhoto) {
         const link = document.createElement("a");
-        link.href = storedPhoto.downloadURL;
+        link.href = storedPhoto.imageDataUrl;
         link.download = storedPhoto.fileName;
         document.body.append(link);
         link.click();
@@ -565,7 +566,7 @@
           }
           setStatus("Foto enviada correctamente.", "ok");
           window.parent.postMessage({ type: "mude-photo-sent", deliveryMethods: tasks.map((task) => task.method), email, phone, storagePath: storedPhoto.path, storageUrl: storedPhoto.downloadURL }, window.location.origin);
-          window.setTimeout(() => { resetForAnotherPhoto(); setStatus("Foto enviada. Puedes tomar otra.", "ok"); }, 900);
+          window.setTimeout(() => { resetForAnotherPhoto(); }, 500);
         } catch (error) {
           console.error(error);
           setStatus(error.message || "Error al enviar la foto.", "error");
