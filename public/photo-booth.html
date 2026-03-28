@@ -21,17 +21,21 @@
       .stage.is-vertical { width:min(42vw,14rem); max-width:14rem; max-height:none; aspect-ratio:9/16; }
       .stage video,.stage img.preview,.stage img.frame { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
       .stage img.frame { z-index:2; pointer-events:none; } .stage img.preview { z-index:1; display:none; } .stage.is-front-camera video { transform:scaleX(-1); }
-      .capture-toolbar { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; align-items:center; }
+      .capture-toolbar { display:grid; grid-template-columns:minmax(0,1.22fr) auto minmax(0,1.22fr); gap:.45rem; align-items:center; width:100%; max-width:22rem; margin:0 auto; }
       .capture-toolbar.is-hidden { display:none; }
-      .camera-switch-btn { display:inline-flex; align-items:center; justify-content:center; width:100%; min-height:3.15rem; padding:0; background:rgba(255,255,255,.92); box-shadow:0 10px 18px rgba(43,26,15,.08); border-radius:999px; }
+      .camera-switch-btn { display:inline-flex; align-items:center; justify-content:center; width:3.25rem; min-width:3.25rem; max-width:3.25rem; min-height:3.15rem; padding:0; background:rgba(255,255,255,.92); box-shadow:0 10px 18px rgba(43,26,15,.08); border-radius:999px; justify-self:center; }
       .camera-switch-btn img { width:1.35rem; height:1.35rem; object-fit:contain; display:block; }
       .controls,.contact-actions { display:grid; gap:.3rem; max-width:22rem; margin:0 auto; } .controls { margin-top:.28rem; }
       .orientation-toggle,.capture-actions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; }
       .delivery-methods { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.55rem; }
       .capture-actions { display:none; } .capture-actions.is-visible { display:grid; }
       .orientation-btn,.delivery-option { display:inline-flex; align-items:center; justify-content:center; background:rgba(255,255,255,.92); color:var(--stone-700); box-shadow:0 10px 18px rgba(43,26,15,.08); }
-      .orientation-btn { gap:.55rem; } .orientation-btn.is-active { color:#fff; background:linear-gradient(135deg,var(--earth-600),var(--earth-700)); }
+      .orientation-btn { gap:.55rem; min-height:3.15rem; padding:.8rem .8rem; } .orientation-btn.is-active { color:#fff; background:linear-gradient(135deg,var(--earth-600),var(--earth-700)); }
       .orientation-btn svg { width:1rem; height:1rem; flex-shrink:0; }
+      .delivery-modal { position:fixed; inset:0; z-index:26; display:none; place-items:center; padding:1rem; background:rgba(10,6,4,.48); backdrop-filter:blur(4px); }
+      .delivery-modal.is-visible { display:grid; }
+      .delivery-box { width:min(100%,25rem); display:grid; gap:.75rem; padding:1rem; border-radius:1.4rem; background:#fffaf4; box-shadow:0 24px 48px rgba(0,0,0,.24); }
+      .delivery-box__close { width:100%; background:#fff; color:var(--stone-700); box-shadow:0 10px 18px rgba(43,26,15,.08); }
       .mail-box { background:rgba(255,252,247,.88); border:1px solid rgba(75,64,54,.08); border-radius:1.2rem; padding:.85rem; display:grid; gap:.7rem; box-shadow:0 12px 24px rgba(43,26,15,.06); }
       .mail-preview { display:none; align-items:center; gap:.8rem; padding:.2rem .1rem .05rem; } .mail-preview.is-visible { display:flex; } .mail-preview img { width:4rem; height:4rem; object-fit:cover; border-radius:.95rem; border:1px solid rgba(75,64,54,.12); box-shadow:0 10px 20px rgba(43,26,15,.08); cursor:pointer; }
       .field-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.75rem; } .field { display:grid; gap:.4rem; } .field.full { grid-column:1 / -1; }
@@ -63,7 +67,8 @@
         .title { font-size:1.55rem; }
         .subtitle { font-size:.82rem; }
         .stage { max-height:32svh; } .stage.is-vertical { width:min(48vw,13rem); max-width:13rem; }
-        .camera-switch-btn { min-height:3rem; } .camera-switch-btn img { width:1.2rem; height:1.2rem; }
+        .capture-toolbar { gap:.4rem; }
+        .camera-switch-btn { width:3rem; min-width:3rem; max-width:3rem; min-height:3rem; } .camera-switch-btn img { width:1.2rem; height:1.2rem; }
         .delivery-option { min-height:5.5rem; } .delivery-option img { width:2.2rem; height:2.2rem; }
       }
     </style>
@@ -111,7 +116,7 @@
                 <option value="54">🇦🇷 +54</option>
                 <option value="34">🇪🇸 +34</option>
               </select>
-              <input id="phoneInput" type="tel" placeholder="8112212907" inputmode="tel" autocomplete="tel" maxlength="10" />
+              <input id="phoneInput" type="tel" placeholder="8112345678" inputmode="tel" autocomplete="tel" maxlength="10" />
             </div>
           </div>
           <div class="field full"><label for="emailInput">Correo</label><input id="emailInput" type="email" placeholder="correo@ejemplo.com" autocomplete="email" /></div>
@@ -601,7 +606,3 @@
     </script>
   </body>
 </html>
-      .delivery-modal { position:fixed; inset:0; z-index:26; display:none; place-items:center; padding:1rem; background:rgba(10,6,4,.48); backdrop-filter:blur(4px); }
-      .delivery-modal.is-visible { display:grid; }
-      .delivery-box { width:min(100%,25rem); display:grid; gap:.75rem; padding:1rem; border-radius:1.4rem; background:#fffaf4; box-shadow:0 24px 48px rgba(0,0,0,.24); }
-      .delivery-box__close { width:100%; background:#fff; color:var(--stone-700); box-shadow:0 10px 18px rgba(43,26,15,.08); }
