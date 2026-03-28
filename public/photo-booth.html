@@ -120,10 +120,10 @@
 
       .controls {
         display: grid;
-        gap: 0.35rem;
+        gap: 0.28rem;
         max-width: 22rem;
         margin: 0 auto;
-        margin-top: -0.05rem;
+        margin-top: -0.22rem;
       }
 
       .orientation-toggle {
@@ -161,6 +161,45 @@
         display: grid;
         gap: 0.65rem;
         box-shadow: 0 12px 24px rgba(43, 26, 15, 0.06);
+      }
+
+      .stage.is-review {
+        max-width: 9.5rem;
+        max-height: 7rem;
+        aspect-ratio: 16 / 9;
+      }
+
+      .stage.is-review.is-vertical {
+        width: min(28vw, 6.2rem);
+        max-width: 6.2rem;
+        aspect-ratio: 9 / 16;
+      }
+
+      .mail-preview {
+        display: none;
+        align-items: center;
+        gap: 0.8rem;
+        padding: 0.2rem 0.1rem 0.05rem;
+      }
+
+      .mail-preview.is-visible {
+        display: flex;
+      }
+
+      .mail-preview img {
+        width: 4rem;
+        height: 4rem;
+        object-fit: cover;
+        border-radius: 0.95rem;
+        border: 1px solid rgba(75, 64, 54, 0.12);
+        box-shadow: 0 10px 20px rgba(43, 26, 15, 0.08);
+      }
+
+      .mail-preview p {
+        margin: 0;
+        font-size: 0.82rem;
+        color: var(--stone-500);
+        line-height: 1.4;
       }
 
       .field-grid {
@@ -320,6 +359,25 @@
           width: min(48vw, 13rem);
           max-width: 13rem;
         }
+
+        .stage.is-review {
+          max-width: 8.2rem;
+          max-height: 6rem;
+        }
+
+        .stage.is-review.is-vertical {
+          width: min(25vw, 5.4rem);
+          max-width: 5.4rem;
+        }
+
+        .mail-preview {
+          gap: 0.65rem;
+        }
+
+        .mail-preview img {
+          width: 3.3rem;
+          height: 3.3rem;
+        }
       }
     </style>
   </head>
@@ -364,6 +422,13 @@
       <p id="status" class="status"></p>
 
       <section id="mailBox" class="mail-box is-hidden">
+        <div id="mailPreview" class="mail-preview">
+          <img id="mailPreviewImage" alt="Vista previa de la foto" />
+          <p>
+            Tu foto ya esta lista.
+            Revisa tus datos para enviarla por correo.
+          </p>
+        </div>
         <div class="field-grid">
           <div class="field">
             <label for="nameInput">Nombre</label>
@@ -399,6 +464,8 @@
       const stage = document.querySelector(".stage");
       const statusEl = document.querySelector("#status");
       const mailBox = document.querySelector("#mailBox");
+      const mailPreview = document.querySelector("#mailPreview");
+      const mailPreviewImage = document.querySelector("#mailPreviewImage");
 
       const horizontalBtn = document.querySelector("#horizontalBtn");
       const verticalBtn = document.querySelector("#verticalBtn");
@@ -481,7 +548,10 @@
           preview.style.display = "none";
           preview.classList.remove("show");
           video.style.display = "block";
+          stage.classList.remove("is-review");
           mailBox.classList.add("is-hidden");
+          mailPreview.classList.remove("is-visible");
+          mailPreviewImage.removeAttribute("src");
           againBtn.classList.add("is-hidden");
           showStep(stream ? "capture" : "start");
           setStatus("Formato actualizado. Toma una nueva foto.");
@@ -561,7 +631,10 @@
         }
 
         continueBtn.classList.add("is-hidden");
+        stage.classList.add("is-review");
         mailBox.classList.remove("is-hidden");
+        mailPreview.classList.add("is-visible");
+        mailPreviewImage.src = capturedDataUrl;
         syncSendState();
         setStatus("Completa los datos para enviar la foto.");
       }
@@ -572,8 +645,11 @@
         preview.style.display = "none";
         preview.classList.remove("show");
         video.style.display = "block";
+        stage.classList.remove("is-review");
 
         mailBox.classList.add("is-hidden");
+        mailPreview.classList.remove("is-visible");
+        mailPreviewImage.removeAttribute("src");
         againBtn.classList.add("is-hidden");
         sendBtn.disabled = true;
         showStep(stream ? "capture" : "start");

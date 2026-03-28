@@ -16,6 +16,7 @@ import {
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
 const app = document.querySelector("#app");
+const EXPERIENCE_VERSION = "20260327d";
 const currencyFormatter = new Intl.NumberFormat("es-MX", {
   style: "currency",
   currency: "MXN",
@@ -104,6 +105,8 @@ function buildPhotoBoothUrl() {
   if (state.user?.displayName) {
     params.set("name", state.user.displayName);
   }
+
+  params.set("v", EXPERIENCE_VERSION);
 
   return `./photo-booth.html?${params.toString()}`;
 }
@@ -862,7 +865,7 @@ function renderARExperienceModal() {
 
         <iframe
           class="experience-frame"
-          src="./ar-scanner.html"
+          src="./ar-scanner.html?v=${EXPERIENCE_VERSION}"
           title="Escaner AR MUDE"
           allow="autoplay; camera; xr-spatial-tracking; fullscreen"
         ></iframe>
@@ -889,7 +892,7 @@ function renderModelViewerModal() {
 
         <iframe
           class="experience-frame"
-          src="./ar-viewer.html"
+          src="./ar-viewer.html?v=${EXPERIENCE_VERSION}"
           title="Visor 3D y AR MUDE"
           allow="autoplay; camera; xr-spatial-tracking; fullscreen"
         ></iframe>
@@ -1371,6 +1374,12 @@ window.addEventListener("message", (event) => {
 
     state.showARExperience = null;
     state.showStampCelebration = pavilion;
+    renderApp();
+    return;
+  }
+
+  if (event.data?.type === "mude-close-viewer") {
+    state.showModelViewer = null;
     renderApp();
   }
 });

@@ -62,31 +62,71 @@
         margin-bottom: 0.2rem;
       }
 
-      #arBtn {
+      .viewer-brand {
+        position: fixed;
+        top: 5.8rem;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 20;
+        width: min(36vw, 9rem);
+        display: grid;
+        place-items: center;
+        pointer-events: none;
+      }
+
+      .viewer-brand img {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .viewer-actions {
         position: fixed;
         left: 50%;
         bottom: 1.2rem;
         transform: translateX(-50%);
         z-index: 20;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .action-button {
         border: 0;
         border-radius: 999px;
         padding: 1rem 1.2rem;
         font-size: 0.95rem;
         font-weight: 800;
+        font-family: "Manrope", sans-serif;
+        cursor: pointer;
+      }
+
+      #arBtn {
         color: white;
         background: linear-gradient(135deg, var(--earth-600), var(--earth-700));
         box-shadow: 0 16px 30px rgba(107, 68, 33, 0.3);
       }
 
-      .mude-hotspot {
-        pointer-events: none;
-        transform: translate(-50%, -100%);
+      .close-button {
+        color: #2f241c;
+        background: rgba(255, 250, 244, 0.92);
+        box-shadow: 0 16px 30px rgba(18, 13, 9, 0.18);
       }
 
-      .mude-hotspot img {
-        width: 140px;
-        height: auto;
-        display: block;
+      @media (max-width: 520px) {
+        .viewer-brand {
+          top: 6.1rem;
+          width: min(46vw, 8rem);
+        }
+
+        .viewer-actions {
+          width: calc(100vw - 2rem);
+        }
+
+        .action-button {
+          flex: 1;
+          padding-inline: 0.95rem;
+        }
       }
     </style>
   </head>
@@ -94,6 +134,10 @@
     <div class="message">
       <strong>Dinosaurio MUDE</strong>
       <span id="messageText">Explora el modelo 3D y usa AR para verlo en tu entorno.</span>
+    </div>
+
+    <div class="viewer-brand">
+      <img src="./assets/ar/images/mude.png" alt="MUDE" />
     </div>
 
     <model-viewer
@@ -108,25 +152,21 @@
       shadow-intensity="1"
       environment-image="neutral"
       orientation="0deg 0deg 0deg"
-      camera-orbit="0deg 75deg 105%"
-      camera-target="0m 0.8m 0m"
+      camera-orbit="0deg 78deg 105%"
+      camera-target="0m 0.45m 0m"
       scale="2 2 2"
-    >
-      <button id="arBtn" slot="ar-button">Ver en AR</button>
-      <div
-        slot="hotspot-mude"
-        data-position="0 1.8 0"
-        data-normal="0 1 0"
-        class="mude-hotspot"
-      >
-        <img src="./assets/ar/images/mude.png" alt="MUDE" />
-      </div>
-    </model-viewer>
+    ></model-viewer>
+
+    <div class="viewer-actions">
+      <button id="arBtn" class="action-button" type="button">Ver en AR</button>
+      <button id="closeBtn" class="action-button close-button" type="button">Cerrar</button>
+    </div>
 
     <script>
       const messageText = document.querySelector("#messageText");
       const viewer = document.querySelector("#viewer");
       const arBtn = document.querySelector("#arBtn");
+      const closeBtn = document.querySelector("#closeBtn");
       const dinoAudio = new Audio("./assets/ar/audio/dino.mp3");
 
       dinoAudio.loop = true;
@@ -158,6 +198,13 @@
       });
 
       arBtn.addEventListener("click", playAudioSafe);
+      arBtn.addEventListener("click", () => viewer.activateAR());
+      closeBtn.addEventListener("click", () => {
+        window.parent.postMessage(
+          { type: "mude-close-viewer" },
+          window.location.origin
+        );
+      });
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
           dinoAudio.pause();

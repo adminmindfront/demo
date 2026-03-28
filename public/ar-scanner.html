@@ -221,12 +221,15 @@
       const dinoAudio = new Audio(AUDIO_URL);
       dinoAudio.loop = true;
       dinoAudio.preload = "auto";
+      dinoAudio.muted = true;
+      dinoAudio.playsInline = true;
 
       let mindarThree;
       let renderer;
       let scene;
       let camera;
       let mixer;
+      let audioPrimed = false;
 
       function setMessage(text) {
         messageText.textContent = text;
@@ -245,14 +248,30 @@
         targetStatus.classList.add("is-hidden");
       }
 
+      async function primeAudio() {
+        if (audioPrimed) {
+          return;
+        }
+
+        try {
+          await dinoAudio.play();
+          dinoAudio.pause();
+          dinoAudio.currentTime = 0;
+          dinoAudio.muted = false;
+          audioPrimed = true;
+        } catch (_) {
+          dinoAudio.muted = false;
+        }
+      }
+
       function unlockAudio() {
-        dinoAudio
-          .play()
-          .then(() => {
-            dinoAudio.pause();
-            dinoAudio.currentTime = 0;
-          })
-          .catch(() => {});
+        primeAudio().catch(() => {});
+      }
+
+      function playDinoAudio() {
+        dinoAudio.muted = false;
+        dinoAudio.currentTime = 0;
+        dinoAudio.play().catch(() => {});
       }
 
       async function addFloatingImage(anchor, modelRoot) {
@@ -274,8 +293,8 @@
         const height = (size.y || 1) * 0.22;
 
         sprite.scale.set(height * aspect, height, 1);
-        sprite.center.set(0.5, 0);
-        sprite.position.set(center.x, box.max.y + size.y * 0.18, center.z + 0.02);
+        sprite.center.set(0.5, 1);
+        sprite.position.set(center.x, box.min.y - size.y * 0.14, center.z + 0.01);
         sprite.renderOrder = 999;
         anchor.group.add(sprite);
       }
@@ -295,8 +314,8 @@
 
         model.position.x -= center.x;
         model.position.z -= center.z;
-        model.position.y -= center.y;
-        model.position.z += 0.02;
+        model.position.y -= center.y + size.y * 0.08;
+        model.position.z += 0.03;
 
         const root = new THREE.Group();
         root.rotation.set(0, 0, 0);
@@ -337,7 +356,7 @@
         anchor.onTargetFound = () => {
           stampButton.classList.add("is-visible");
           setScanningState(true);
-          dinoAudio.play().catch(() => {});
+          playDinoAudio();
         };
 
         anchor.onTargetLost = () => {
@@ -348,6 +367,7 @@
         };
 
         await buildModel(anchor);
+        await primeAudio();
         await mindarThree.start();
         setScanningState(false);
 
