@@ -342,6 +342,8 @@ img {
   display: flex;
   gap: 0.6rem;
   padding: 0.75rem 0.1rem 0.55rem;
+  justify-content: center;
+  align-items: center;
 }
 
 .section-nav__btn {
@@ -351,6 +353,8 @@ img {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.28);
   transition: transform 140ms ease, border-color 140ms ease, background 140ms ease;
 }
 
@@ -361,7 +365,7 @@ img {
 }
 
 .section-nav__btn.is-active {
-  background: rgba(71, 168, 255, 0.16);
+  background: rgba(143, 212, 255, 0.42);
   border-color: var(--line-strong);
   transform: translateY(-1px);
 }
@@ -442,6 +446,14 @@ img {
   padding: 1rem;
   display: grid;
   gap: 0.9rem;
+}
+
+.assistant.section-panel {
+  display: none;
+}
+
+.assistant.section-panel.is-active {
+  display: grid;
 }
 
 .assistant__notice {
@@ -1072,6 +1084,10 @@ img {
   z-index: 40;
 }
 
+.auth-gate {
+  place-items: start center;
+}
+
 .language-card,
 .auth-card,
 .plan-builder-card {
@@ -1184,6 +1200,9 @@ img {
   display: grid;
   gap: 1rem;
   padding: 1.15rem;
+  max-height: none;
+  overflow: visible;
+  margin: 0 auto;
 }
 
 .auth-card__copy,

@@ -440,7 +440,7 @@ const state = {
   authError: "",
   isAuthSubmitting: false,
   assistantMode: DEFAULT_SETTINGS.assistantMode,
-  activeSection: "nearby",
+  activeSection: "assistant",
   menuOpen: false,
   planBuilderOpen: false,
   generatedPlan: loadGeneratedPlan(),
@@ -524,6 +524,7 @@ const els = {
   menuDrawer: document.getElementById("menuDrawer"),
   menuBackdrop: document.getElementById("menuBackdrop"),
   menuCloseBtn: document.getElementById("menuCloseBtn"),
+  assistantSectionBtn: document.getElementById("assistantSectionBtn"),
   mapSectionBtn: document.getElementById("mapSectionBtn"),
   nearbySectionBtn: document.getElementById("nearbySectionBtn"),
   planSectionBtn: document.getElementById("planSectionBtn"),
@@ -581,6 +582,7 @@ const els = {
   planGrid: document.getElementById("planGrid"),
   openPlanBuilderBtn: document.getElementById("openPlanBuilderBtn"),
   generatedPlan: document.getElementById("generatedPlan"),
+  assistantPanel: document.getElementById("assistantPanel"),
   assistantTitle: document.getElementById("assistantTitle"),
   assistantSubtitle: document.getElementById("assistantSubtitle"),
   connectBtn: document.getElementById("connectBtn"),
@@ -1763,6 +1765,7 @@ function renderSummaryCards() {
 
 function renderSectionNav() {
   const buttons = [
+    ["assistant", els.assistantSectionBtn, t("assistantTitle")],
     ["map", els.mapSectionBtn, t("mapTitle")],
     ["nearby", els.nearbySectionBtn, t("nearbyTitle")],
     ["plan", els.planSectionBtn, t("planTitle")],
@@ -1779,7 +1782,7 @@ function renderSectionNav() {
 }
 
 function renderSectionPanels() {
-  [els.mapAccordion, els.nearbyAccordion, els.planAccordion].forEach((panel) => {
+  [els.assistantPanel, els.mapAccordion, els.nearbyAccordion, els.planAccordion].forEach((panel) => {
     if (!panel) {
       return;
     }
@@ -3991,7 +3994,7 @@ function resetTravelerSession() {
   state.memorySummary = DEFAULT_MEMORY_SUMMARY;
   state.contextUpdatedAt = 0;
   state.travelMode = DEFAULT_SETTINGS.travelMode;
-  state.activeSection = "nearby";
+  state.activeSection = "assistant";
   state.menuOpen = false;
   state.planBuilderOpen = false;
   state.planDragId = null;
@@ -4040,7 +4043,7 @@ async function hydrateUserState(firebaseUser) {
       ? stored.settings?.voiceEnabled ?? DEFAULT_SETTINGS.voiceEnabled
       : false;
     state.realtime.assistantSpeaking = false;
-    state.activeSection = "nearby";
+    state.activeSection = "assistant";
     state.menuOpen = false;
     state.planBuilderOpen = false;
     state.planDragId = null;
@@ -4217,7 +4220,7 @@ function setMenuOpen(isOpen) {
 }
 
 function switchSection(section) {
-  if (!["map", "nearby", "plan"].includes(section)) {
+  if (!["assistant", "map", "nearby", "plan"].includes(section)) {
     return;
   }
   state.activeSection = section;
@@ -4239,7 +4242,7 @@ async function requestInlineSuggestion() {
 
   state.assistantMode = "text";
   state.realtime.voiceEnabled = false;
-  switchSection("nearby");
+  switchSection("assistant");
   schedulePersist();
   renderAssistant();
   els.chatInput.focus();
