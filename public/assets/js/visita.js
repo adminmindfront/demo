@@ -30,6 +30,7 @@ const LOCAL_LANGUAGE_KEY = "travel-language";
 const LOCAL_LANGUAGE_CONFIRMED_KEY = "travel-language-confirmed";
 const LOCAL_PLAN_KEY = "travel-plan";
 const LOCAL_GENERATED_PLAN_KEY = "travel-generated-plan";
+const LOCAL_SAVED_PLANS_KEY = "travel-saved-plans";
 const DEFAULT_CHAT_LIMIT = 30;
 const DEFAULT_MEMORY_SUMMARY =
   "Not enough stable traveler preferences yet. Start with brief questions about style, budget, and companions.";
@@ -414,6 +415,39 @@ const DEFAULT_SETTINGS = {
   assistantMode: "voice",
 };
 
+const NEARBY_FILTERS = [
+  { id: "all", labels: { es: "Todo", en: "All" }, types: [] },
+  { id: "food", labels: { es: "Comida", en: "Food" }, types: ["restaurant", "cafe", "bar", "bakery"] },
+  { id: "hotels", labels: { es: "Hoteles", en: "Hotels" }, types: ["lodging"] },
+  { id: "outdoor", labels: { es: "Aire libre", en: "Outdoor" }, types: ["park", "campground", "zoo"] },
+  { id: "entertainment", labels: { es: "Entretenimiento", en: "Entertainment" }, types: ["movie_theater", "amusement_park", "aquarium", "night_club"] },
+  { id: "museums", labels: { es: "Museos", en: "Museums" }, types: ["museum"] },
+  { id: "culture", labels: { es: "Cultura", en: "Culture" }, types: ["tourist_attraction", "museum", "art_gallery"] },
+  { id: "shopping", labels: { es: "Compras", en: "Shopping" }, types: ["shopping_mall", "store"] },
+  { id: "nightlife", labels: { es: "Vida nocturna", en: "Nightlife" }, types: ["bar", "night_club"] },
+  { id: "family", labels: { es: "Familiar", en: "Family" }, types: ["amusement_park", "aquarium", "zoo", "park"] },
+];
+
+const EXTRA_PLACE_TYPE_LABELS = {
+  restaurant: { es: "Restaurante", en: "Restaurant" },
+  cafe: { es: "Cafe", en: "Cafe" },
+  bar: { es: "Bar", en: "Bar" },
+  bakery: { es: "Panaderia", en: "Bakery" },
+  lodging: { es: "Hotel", en: "Hotel" },
+  park: { es: "Parque", en: "Park" },
+  campground: { es: "Campamento", en: "Campground" },
+  zoo: { es: "Zoologico", en: "Zoo" },
+  movie_theater: { es: "Cine", en: "Cinema" },
+  amusement_park: { es: "Parque tematico", en: "Theme park" },
+  aquarium: { es: "Acuario", en: "Aquarium" },
+  night_club: { es: "Antro", en: "Night club" },
+  art_gallery: { es: "Galeria", en: "Art gallery" },
+  shopping_mall: { es: "Centro comercial", en: "Mall" },
+  store: { es: "Tienda", en: "Store" },
+  tourist_attraction: { es: "Atraccion", en: "Attraction" },
+  museum: { es: "Museo", en: "Museum" },
+};
+
 const state = {
   language: DEFAULT_SETTINGS.language,
   confirmedLanguage: localStorage.getItem(LOCAL_LANGUAGE_KEY) || DEFAULT_SETTINGS.language,
@@ -430,6 +464,8 @@ const state = {
   location: null,
   weather: null,
   nearbyPlaces: [],
+  nearbyFilter: "all",
+  nearbyFilterLoaded: {},
   selectedPlaceId: null,
   quickSuggestion: "",
   suggestionVisible: false,
@@ -446,6 +482,9 @@ const state = {
   chatMenuOpen: false,
   planBuilderOpen: false,
   generatedPlan: loadGeneratedPlan(),
+  savedPlans: loadSavedPlans(),
+  planWorkspace: "draft",
+  expandedSavedPlanId: null,
   planDragId: null,
   accordions: {
     overview: true,
@@ -460,6 +499,7 @@ const state = {
     ready: false,
     loading: false,
     map: null,
+    serviceHost: null,
     geocoder: null,
     directionsService: null,
     directionsRenderer: null,
@@ -577,6 +617,7 @@ const els = {
   nearbyAccordionIcon: document.getElementById("nearbyAccordionIcon"),
   nearbyTitle: document.getElementById("nearbyTitle"),
   nearbySubtitle: document.getElementById("nearbySubtitle"),
+  nearbyFilterRow: document.getElementById("nearbyFilterRow"),
   nearbyGrid: document.getElementById("nearbyGrid"),
   planAccordion: document.getElementById("planAccordion"),
   planAccordionTitle: document.getElementById("planAccordionTitle"),
@@ -584,9 +625,14 @@ const els = {
   planAccordionIcon: document.getElementById("planAccordionIcon"),
   planTitle: document.getElementById("planTitle"),
   planSubtitle: document.getElementById("planSubtitle"),
+  draftPlanTabBtn: document.getElementById("draftPlanTabBtn"),
+  savedPlansTabBtn: document.getElementById("savedPlansTabBtn"),
+  draftPlanWorkspace: document.getElementById("draftPlanWorkspace"),
+  savedPlansWorkspace: document.getElementById("savedPlansWorkspace"),
   planGrid: document.getElementById("planGrid"),
   openPlanBuilderBtn: document.getElementById("openPlanBuilderBtn"),
   generatedPlan: document.getElementById("generatedPlan"),
+  savedPlansList: document.getElementById("savedPlansList"),
   assistantPanel: document.getElementById("assistantPanel"),
   assistantTitle: document.getElementById("assistantTitle"),
   assistantSubtitle: document.getElementById("assistantSubtitle"),
@@ -647,7 +693,20 @@ function loadPlan() {
 }
 
 function savePlan() {
-  localStorage.setItem(LOCAL_PLAN_KEY, JSON.stringify(state.plan));
+  localStorage.setItem(LOCAL_PLAN_KEY, JSON.stringify(cleanForStorage(state.plan)));
+}
+
+function loadSavedPlans() {
+  try {
+    const raw = localStorage.getItem(LOCAL_SAVED_PLANS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveSavedPlans() {
+  localStorage.setItem(LOCAL_SAVED_PLANS_KEY, JSON.stringify(cleanForStorage(state.savedPlans)));
 }
 
 function loadGeneratedPlan() {
@@ -661,10 +720,32 @@ function loadGeneratedPlan() {
 
 function saveGeneratedPlan() {
   if (state.generatedPlan) {
-    localStorage.setItem(LOCAL_GENERATED_PLAN_KEY, JSON.stringify(state.generatedPlan));
+    localStorage.setItem(LOCAL_GENERATED_PLAN_KEY, JSON.stringify(cleanForStorage(state.generatedPlan)));
     return;
   }
   localStorage.removeItem(LOCAL_GENERATED_PLAN_KEY);
+}
+
+function cleanForStorage(value) {
+  if (value === undefined) {
+    return null;
+  }
+
+  if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => cleanForStorage(item));
+  }
+
+  if (typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, cleanForStorage(item)])
+    );
+  }
+
+  return String(value);
 }
 
 function t(key) {
@@ -809,6 +890,73 @@ function getPlanTravelModeLabel() {
     zh: "出行方式",
     de: "Verkehrsart",
   });
+}
+
+function getDraftPlanLabel() {
+  return localizedText({
+    es: "Nuevo plan",
+    en: "New plan",
+    fr: "Nouveau plan",
+    pt: "Novo plano",
+    ja: "æ–°ã—ã„ãƒ—ãƒ©ãƒ³",
+    ko: "ìƒˆ í”Œëžœ",
+    ar: "Ø®Ø·Ø© Ø¬Ø¯ÙŠØ¯Ø©",
+    zh: "新计划",
+    de: "Neuer Plan",
+  });
+}
+
+function getSavedPlansLabel() {
+  return localizedText({
+    es: "Mis planes",
+    en: "My plans",
+    fr: "Mes plans",
+    pt: "Meus planos",
+    ja: "ä¿å­˜ã—ãŸãƒ—ãƒ©ãƒ³",
+    ko: "ë‚´ í”Œëžœ",
+    ar: "Ø®Ø·Ø·ÙŠ",
+    zh: "我的计划",
+    de: "Meine Plaene",
+  });
+}
+
+function getEditLabel() {
+  return localizedText({
+    es: "Editar",
+    en: "Edit",
+    fr: "Modifier",
+    pt: "Editar",
+    ja: "ç·¨é›†",
+    ko: "íŽ¸ì§‘",
+    ar: "ØªØ¹Ø¯ÙŠÙ„",
+    zh: "编辑",
+    de: "Bearbeiten",
+  });
+}
+
+function getDeleteLabel() {
+  return localizedText({
+    es: "Eliminar",
+    en: "Delete",
+    fr: "Supprimer",
+    pt: "Excluir",
+    ja: "å‰Šé™¤",
+    ko: "ì‚­ì œ",
+    ar: "Ø­Ø°Ù",
+    zh: "删除",
+    de: "Loeschen",
+  });
+}
+
+function getNearbyFilterLabel(filter) {
+  return filter?.labels?.[state.language] || filter?.labels?.en || filter?.id || "";
+}
+
+function getPlaceTypeLabel(type) {
+  return EXTRA_PLACE_TYPE_LABELS[type]?.[state.language]
+    || EXTRA_PLACE_TYPE_LABELS[type]?.en
+    || t("placeTypes")?.[type]
+    || type;
 }
 
 function langMeta(code = state.language) {
@@ -1151,7 +1299,7 @@ function scheduleMemoryRefresh() {
 }
 
 function getTravelerPayload() {
-  return {
+  return cleanForStorage({
     profile: {
       displayName: state.user?.displayName || "",
       email: state.user?.email || "",
@@ -1169,16 +1317,18 @@ function getTravelerPayload() {
     },
     plan: state.plan,
     generatedPlan: state.generatedPlan,
+    savedPlans: state.savedPlans,
     chats: state.chats,
     activeChatId: state.activeChatId,
     memorySummary: state.memorySummary,
-  };
+  });
 }
 
 async function persistTravelerData() {
   if (!state.user?.uid) {
     savePlan();
     saveGeneratedPlan();
+    saveSavedPlans();
     localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
     return;
   }
@@ -1231,6 +1381,27 @@ function findPlaceByName(placeName) {
   }
 
   return bestScore >= 3 ? bestPlace : null;
+}
+
+function getNearbyFilterConfig(filterId = state.nearbyFilter) {
+  return NEARBY_FILTERS.find((filter) => filter.id === filterId) || NEARBY_FILTERS[0];
+}
+
+function getFilteredNearbyPlaces(filterId = state.nearbyFilter) {
+  const filter = getNearbyFilterConfig(filterId);
+  if (!filter.types.length) {
+    return state.nearbyPlaces;
+  }
+
+  return state.nearbyPlaces.filter((place) => filter.types.includes(place.category));
+}
+
+function sortSavedPlans(plans) {
+  return [...plans].sort((a, b) => {
+    const aDate = `${a.date || ""}T${a.startTime || "00:00"}:00`;
+    const bDate = `${b.date || ""}T${b.startTime || "00:00"}:00`;
+    return new Date(aDate).getTime() - new Date(bDate).getTime();
+  });
 }
 
 function toRadians(value) {
@@ -1925,15 +2096,24 @@ function renderSectionPanels() {
 function renderNearby() {
   els.nearbyTitle.textContent = t("nearbyTitle");
   els.nearbySubtitle.textContent = t("nearbySubtitle");
+  els.nearbyFilterRow.innerHTML = NEARBY_FILTERS
+    .map((filter) => `
+      <button class="tiny-button ${state.nearbyFilter === filter.id ? "is-active" : ""}" type="button" data-nearby-filter="${filter.id}">
+        ${escapeHtml(getNearbyFilterLabel(filter))}
+      </button>
+    `)
+    .join("");
 
-  if (!state.nearbyPlaces.length) {
+  const visiblePlaces = getFilteredNearbyPlaces();
+
+  if (!visiblePlaces.length) {
     els.nearbyGrid.innerHTML = `<div class="empty-state">${escapeHtml(
       isConfigured(GOOGLE_API_KEY) ? t("emptyNearby") : t("mapsMissing")
     )}</div>`;
     return;
   }
 
-  els.nearbyGrid.innerHTML = state.nearbyPlaces
+  els.nearbyGrid.innerHTML = visiblePlaces
     .map((place) => {
       const rating = Number.isFinite(place.rating) ? `★ ${place.rating.toFixed(1)}` : null;
       const hours = place.openNow === null
@@ -1947,7 +2127,7 @@ function renderNearby() {
           <div class="place-card__media">
             ${place.photo ? `<img src="${escapeHtml(place.photo)}" alt="${escapeHtml(place.name)}" />` : ""}
             <div class="place-card__badge">${escapeHtml(
-              t("placeTypes")[place.category] || place.category
+              getPlaceTypeLabel(place.category)
             )}</div>
           </div>
           <div class="place-card__body">
@@ -2019,42 +2199,84 @@ function renderGeneratedPlan() {
   `;
 }
 
+function renderSavedPlans() {
+  if (!state.savedPlans.length) {
+    els.savedPlansList.innerHTML = `<div class="empty-state">${escapeHtml(micro("generatedPlanEmpty"))}</div>`;
+    return;
+  }
+
+  els.savedPlansList.innerHTML = sortSavedPlans(state.savedPlans)
+    .map((plan) => {
+      const isExpanded = state.expandedSavedPlanId === plan.id;
+      return `
+        <article class="saved-plan-card">
+          <button class="saved-plan-card__toggle" type="button" data-saved-plan-toggle="${plan.id}">
+            <span class="saved-plan-card__title">${escapeHtml(plan.name || t("planTitle"))}</span>
+            <span class="saved-plan-card__meta">${escapeHtml(`${formatDayOnly(plan.date)} · ${plan.travelMode || (t("travelModes")[state.travelMode] || state.travelMode)}`)}</span>
+            <span class="saved-plan-card__summary">${escapeHtml(plan.summary || "")}</span>
+          </button>
+          <div class="saved-plan-card__body" ${isExpanded ? "" : "hidden"}>
+            ${(plan.items || [])
+              .map((item) => `
+                <div class="saved-plan-card__segment">
+                  <strong>${escapeHtml(`${item.startLabel || ""} · ${item.name || ""}`)}</strong>
+                  <span>${escapeHtml([item.routeFromPrevious?.durationText, item.routeFromPrevious?.distanceText].filter(Boolean).join(" · "))}</span>
+                  <span>${escapeHtml(item.availability?.label || "")}</span>
+                </div>
+              `)
+              .join("")}
+            <div class="card-actions">
+              <button class="action-button action-button--primary" type="button" data-edit-saved-plan="${plan.id}">${escapeHtml(getEditLabel())}</button>
+              <button class="action-button" type="button" data-delete-saved-plan="${plan.id}">${escapeHtml(getDeleteLabel())}</button>
+            </div>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
 function renderPlan() {
   els.planTitle.textContent = t("planTitle");
   els.planSubtitle.textContent = t("planSubtitle");
+  els.draftPlanTabBtn.textContent = getDraftPlanLabel();
+  els.savedPlansTabBtn.textContent = getSavedPlansLabel();
+  els.draftPlanTabBtn.classList.toggle("is-active", state.planWorkspace === "draft");
+  els.savedPlansTabBtn.classList.toggle("is-active", state.planWorkspace === "saved");
+  els.draftPlanWorkspace.hidden = state.planWorkspace !== "draft";
+  els.savedPlansWorkspace.hidden = state.planWorkspace !== "saved";
   els.openPlanBuilderBtn.textContent = micro("planCreateButton");
   els.openPlanBuilderBtn.disabled = !state.plan.length;
 
   if (!state.plan.length) {
     els.planGrid.innerHTML = `<div class="empty-state">${escapeHtml(t("emptyPlan"))}</div>`;
-    renderGeneratedPlan();
-    return;
+  } else {
+    els.planGrid.innerHTML = state.plan
+      .map((place, index) => `
+        <article class="plan-card" draggable="true" data-plan-drag="${place.id}">
+          <div class="plan-card__body">
+            <div class="plan-card__top">
+              <span class="plan-card__order">${index + 1}</span>
+              <button class="plan-card__drag" type="button" title="${escapeHtml(micro("reorderHint"))}">↕</button>
+            </div>
+            <h3 class="plan-card__title">${escapeHtml(place.name)}</h3>
+            <div class="plan-card__meta">
+              <span class="mini-tag">${escapeHtml(getPlaceTypeLabel(place.category))}</span>
+              <span class="mini-tag">${escapeHtml(place.routeSummary || t("routeNone"))}</span>
+            </div>
+            <p>${escapeHtml(place.address || "")}</p>
+            <div class="card-actions">
+              <button class="action-button action-button--primary" type="button" data-route-place="${place.id}">${escapeHtml(t("routeTo"))}</button>
+              <button class="action-button" type="button" data-remove-plan="${place.id}">${escapeHtml(t("removePlan"))}</button>
+              ${place.mapsUrl ? `<button class="action-button" type="button" data-open-place="${place.id}">${escapeHtml(t("openMaps"))}</button>` : ""}
+            </div>
+          </div>
+        </article>
+      `)
+      .join("");
   }
-
-  els.planGrid.innerHTML = state.plan
-    .map((place, index) => `
-      <article class="plan-card" draggable="true" data-plan-drag="${place.id}">
-        <div class="plan-card__body">
-          <div class="plan-card__top">
-            <span class="plan-card__order">${index + 1}</span>
-            <button class="plan-card__drag" type="button" title="${escapeHtml(micro("reorderHint"))}">↕</button>
-          </div>
-          <h3 class="plan-card__title">${escapeHtml(place.name)}</h3>
-          <div class="plan-card__meta">
-            <span class="mini-tag">${escapeHtml(t("placeTypes")[place.category] || place.category)}</span>
-            <span class="mini-tag">${escapeHtml(place.routeSummary || t("routeNone"))}</span>
-          </div>
-          <p>${escapeHtml(place.address || "")}</p>
-          <div class="card-actions">
-            <button class="action-button action-button--primary" type="button" data-route-place="${place.id}">${escapeHtml(t("routeTo"))}</button>
-            <button class="action-button" type="button" data-remove-plan="${place.id}">${escapeHtml(t("removePlan"))}</button>
-            ${place.mapsUrl ? `<button class="action-button" type="button" data-open-place="${place.id}">${escapeHtml(t("openMaps"))}</button>` : ""}
-          </div>
-        </div>
-      </article>
-    `)
-    .join("");
   renderGeneratedPlan();
+  renderSavedPlans();
 }
 
 function renderAssistant() {
@@ -2072,7 +2294,8 @@ function renderAssistant() {
   els.voiceVisual.classList.toggle("is-listening", !state.realtime.assistantSpeaking);
   els.voiceVisualizerTitle.textContent = voiceCopy.title;
   els.voiceVisualizerHint.textContent = voiceCopy.hint;
-  els.chatMenuBtn.textContent = getChatMenuLabel();
+  els.chatMenuBtn.title = getChatMenuLabel();
+  els.chatMenuBtn.setAttribute("aria-label", getChatMenuLabel());
   els.chatMenuBtn.setAttribute("aria-expanded", state.chatMenuOpen ? "true" : "false");
   els.chatMenuPanel.hidden = !state.chatMenuOpen;
   els.chatMenuNewBtn.textContent = getNewChatMenuLabel();
@@ -2194,6 +2417,11 @@ function renderMap() {
     return;
   }
   if (!state.maps.ready || !state.maps.map) {
+    if (state.activeSection === "map" && state.maps.ready) {
+      ensureMapView();
+    }
+  }
+  if (!state.maps.ready || !state.maps.map) {
     els.mapCanvas.className = "map-empty";
     els.mapCanvas.textContent = t("locationLoading");
     return;
@@ -2304,27 +2532,37 @@ async function loadGoogleMaps() {
     });
 
     state.maps.ready = true;
-    state.maps.map = new google.maps.Map(els.mapCanvas, {
-      center: DEFAULT_COORDS,
-      zoom: 13,
-      disableDefaultUI: true,
-      zoomControl: true,
-    });
+    state.maps.serviceHost = document.createElement("div");
+    state.maps.serviceHost.style.cssText = "position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;";
+    document.body.appendChild(state.maps.serviceHost);
     state.maps.geocoder = new google.maps.Geocoder();
     state.maps.directionsService = new google.maps.DirectionsService();
-    state.maps.directionsRenderer = new google.maps.DirectionsRenderer({
-      map: state.maps.map,
-      suppressMarkers: false,
-      polylineOptions: {
-        strokeColor: "#8fd4ff",
-        strokeOpacity: 0.9,
-        strokeWeight: 5,
-      },
-    });
-    state.maps.placesService = new google.maps.places.PlacesService(state.maps.map);
+    state.maps.placesService = new google.maps.places.PlacesService(state.maps.serviceHost);
   } finally {
     state.maps.loading = false;
   }
+}
+
+function ensureMapView() {
+  if (!state.maps.ready || state.maps.map) {
+    return;
+  }
+
+  state.maps.map = new google.maps.Map(els.mapCanvas, {
+    center: state.location?.coords || DEFAULT_COORDS,
+    zoom: 13,
+    disableDefaultUI: true,
+    zoomControl: true,
+  });
+  state.maps.directionsRenderer = new google.maps.DirectionsRenderer({
+    map: state.maps.map,
+    suppressMarkers: false,
+    polylineOptions: {
+      strokeColor: "#8fd4ff",
+      strokeOpacity: 0.9,
+      strokeWeight: 5,
+    },
+  });
 }
 
 async function detectLocation() {
@@ -2527,6 +2765,35 @@ async function searchPlacesByCategoryWithExpansion(
     .slice(0, targetCount);
 }
 
+async function ensureNearbyFilterData(filterId = state.nearbyFilter) {
+  const filter = getNearbyFilterConfig(filterId);
+  if (!filter.types.length || !state.maps.ready || !state.maps.placesService || !state.location?.coords) {
+    return;
+  }
+
+  const alreadyCovered = filter.types.every(
+    (type) => state.nearbyPlaces.some((place) => place.category === type) || state.nearbyFilterLoaded[type]
+  );
+
+  if (alreadyCovered) {
+    return;
+  }
+
+  const batches = await Promise.all(
+    filter.types.map(async (type) => {
+      const matches = await searchPlacesByCategoryWithExpansion(type, { targetCount: 4 });
+      state.nearbyFilterLoaded[type] = true;
+      return matches;
+    })
+  );
+
+  mergeNearbyPlaces(batches.flat());
+  if (state.activeSection === "map") {
+    renderMarkers();
+  }
+  renderNearby();
+}
+
 function detectRequestedCategories(text) {
   const source = String(text || "").toLowerCase();
   const matches = [];
@@ -2536,6 +2803,10 @@ function detectRequestedCategories(text) {
     ["restaurant", /\brestaurante|restaurantes|restaurant|restaurants|comida|food|cenar|dinner|almorz|lunch/],
     ["cafe", /\bcafe|caf[eé]s|coffee|brunch|desayuno|breakfast/],
     ["tourist_attraction", /\batraccion|atracción|atracciones|tourist|mirador|landmark|paseo|walk|walks|historia|history|cultural/],
+    ["lodging", /\bhotel|hoteles|alojamiento|hospedaje|lodging|stay\b/],
+    ["park", /\bparque|park|outdoor|aire libre|naturaleza|nature\b/],
+    ["shopping_mall", /\bcompras|shopping|mall|tiendas|store\b/],
+    ["night_club", /\bbar|antro|vida nocturna|nightlife|club\b/],
   ];
 
   for (const [category, pattern] of categoryMatchers) {
@@ -2605,14 +2876,23 @@ async function loadNearbyPlaces() {
     })
     .sort((a, b) => scorePlaceForMoment(b) - scorePlaceForMoment(a))
     .slice(0, 8);
+  TRAVEL_CATEGORIES.forEach((category) => {
+    state.nearbyFilterLoaded[category] = true;
+  });
 }
 
 function clearMarkers() {
-  state.maps.markers.forEach((marker) => marker.setMap(null));
+  state.maps.markers.forEach((marker) => marker.setMap?.(null));
   state.maps.markers = [];
 }
 
 function renderMarkers() {
+  if (!state.maps.map) {
+    if (state.activeSection !== "map") {
+      return;
+    }
+    ensureMapView();
+  }
   if (!state.maps.map || !state.location?.coords) {
     return;
   }
@@ -2940,6 +3220,7 @@ async function calculateRoute(placeId) {
     return null;
   }
 
+  ensureMapView();
   addRouteSummaryToPlan(placeId, t("routeBusy"));
   const route = await getRouteBetween(state.location.coords, place.location, { render: true });
 
@@ -3139,6 +3420,7 @@ async function buildTravelerPlan({
   }
 
   const builtPlan = {
+    id: state.generatedPlan?.id || `plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     name: String(name || "").trim() || t("planTitle"),
     date,
     startTime,
@@ -3148,6 +3430,7 @@ async function buildTravelerPlan({
     createdAt: Date.now(),
     travelMode: t("travelModes")[travelMode] || travelMode,
     basedOnLocation: state.location?.displayName || DEFAULT_COORDS.name,
+    sourcePlaces: sanitizePlan(state.plan),
     totalTravelMinutes,
     totalVisitMinutes,
     summary: "",
@@ -3155,6 +3438,7 @@ async function buildTravelerPlan({
   };
   builtPlan.summary = buildPlanSummary(builtPlan);
   state.generatedPlan = builtPlan;
+  upsertSavedPlan(builtPlan);
   saveGeneratedPlan();
   schedulePersist();
   if (state.realtime.connected) {
@@ -3184,8 +3468,61 @@ function movePlanItem(draggedId, targetId) {
   renderPlan();
 }
 
+function upsertSavedPlan(plan) {
+  if (!plan?.id) {
+    return;
+  }
+
+  state.savedPlans = sortSavedPlans([
+    ...state.savedPlans.filter((item) => item.id !== plan.id),
+    cleanForStorage(plan),
+  ]);
+  state.expandedSavedPlanId = plan.id;
+  saveSavedPlans();
+}
+
+function switchPlanWorkspace(workspace) {
+  state.planWorkspace = workspace === "saved" ? "saved" : "draft";
+  renderPlan();
+}
+
+function toggleSavedPlan(savedPlanId) {
+  state.expandedSavedPlanId = state.expandedSavedPlanId === savedPlanId ? null : savedPlanId;
+  renderSavedPlans();
+}
+
+function editSavedPlan(savedPlanId) {
+  const savedPlan = state.savedPlans.find((plan) => plan.id === savedPlanId);
+  if (!savedPlan) {
+    return;
+  }
+
+  state.plan = sanitizePlan(savedPlan.sourcePlaces || []);
+  state.generatedPlan = sanitizeGeneratedPlan(savedPlan);
+  state.travelMode = savedPlan.travelModeKey || state.travelMode;
+  state.planWorkspace = "draft";
+  savePlan();
+  saveGeneratedPlan();
+  schedulePersist();
+  renderAll();
+}
+
+function deleteSavedPlan(savedPlanId) {
+  state.savedPlans = state.savedPlans.filter((plan) => plan.id !== savedPlanId);
+  if (state.generatedPlan?.id === savedPlanId) {
+    state.generatedPlan = null;
+    saveGeneratedPlan();
+  }
+  if (state.expandedSavedPlanId === savedPlanId) {
+    state.expandedSavedPlanId = null;
+  }
+  saveSavedPlans();
+  schedulePersist();
+  renderPlan();
+}
+
 function summarizePlaceForAssistant(place, index) {
-  return `${index + 1}. ${place.name} | ${t("placeTypes")[place.category] || place.category} | ${
+  return `${index + 1}. ${place.name} | ${getPlaceTypeLabel(place.category)} | ${
     place.address || ""
   } | ${place.openNow === null ? t("unknownHours") : place.openNow ? t("openNow") : t("closedNow")} | ${
     Number.isFinite(place.rating) ? `rating ${place.rating}` : "rating n/a"
@@ -3205,6 +3542,12 @@ function buildLiveContextSnapshot(limit = 4) {
         `${state.generatedPlan.name} | ${state.generatedPlan.date} | ${state.generatedPlan.summary}`,
         ...state.generatedPlan.items.map((item, index) => `${index + 1}. ${item.name} | ${item.startLabel}-${item.endLabel} | ${item.availability.label}`),
       ].join("\n")
+    : "";
+  const savedPlans = state.savedPlans.length
+    ? sortSavedPlans(state.savedPlans)
+        .slice(0, limit)
+        .map((plan, index) => `${index + 1}. ${plan.name} | ${plan.date} | ${plan.summary}`)
+        .join("\n")
     : "";
   const currentWeather = state.weather
     ? `${weatherLabel(state.weather.current_weather.weathercode)} ${formatTemperature(
@@ -3234,6 +3577,9 @@ ${savedPlan || "No saved activities yet."}
 
 GENERATED DAY PLAN:
 ${generatedPlan || "No generated day plan yet."}
+
+SAVED TRAVELER PLANS:
+${savedPlans || "No saved plans yet."}
   `.trim();
 }
 
@@ -3596,6 +3942,7 @@ async function handleToolCall(outputItem) {
         recommended_now: getRecommendedPlaces(3),
         saved_plan: state.plan,
         generated_plan: state.generatedPlan,
+        saved_plans: state.savedPlans,
       };
       break;
     case "get_nearby_places":
@@ -3668,7 +4015,7 @@ async function handleToolCall(outputItem) {
       renderPlan();
       break;
     case "list_saved_plan":
-      result = { plan: state.plan, generated_plan: state.generatedPlan };
+      result = { plan: state.plan, generated_plan: state.generatedPlan, saved_plans: state.savedPlans };
       break;
     default:
       result = { error: `Unknown tool: ${outputItem.name}` };
@@ -4114,6 +4461,7 @@ function sanitizePlan(plan) {
     .filter((item) => item && typeof item === "object" && item.id && item.name)
     .map((item) => ({
       ...item,
+      openNow: item.openNow ?? null,
       routeSummary: String(item.routeSummary || t("routeNone")),
     }));
 }
@@ -4131,6 +4479,7 @@ function sanitizeGeneratedPlan(plan) {
     travelModeKey: String(plan.travelModeKey || ""),
     travelMode: String(plan.travelMode || ""),
     summary: String(plan.summary || ""),
+    sourcePlaces: sanitizePlan(plan.sourcePlaces || []),
     items: plan.items
       .filter((item) => item && typeof item === "object" && item.placeId)
       .map((item) => ({
@@ -4142,6 +4491,22 @@ function sanitizeGeneratedPlan(plan) {
   };
 }
 
+function sanitizeSavedPlans(plans) {
+  if (!Array.isArray(plans)) {
+    return [];
+  }
+
+  return sortSavedPlans(
+    plans
+      .filter((plan) => plan && typeof plan === "object" && Array.isArray(plan.items))
+      .map((plan) => ({
+        ...sanitizeGeneratedPlan(plan),
+        id: String(plan.id || `saved-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+        sourcePlaces: sanitizePlan(plan.sourcePlaces || []),
+      }))
+  );
+}
+
 function resetTravelerSession() {
   disconnectRealtime();
   state.user = null;
@@ -4151,6 +4516,9 @@ function resetTravelerSession() {
   state.isAuthSubmitting = false;
   state.plan = [];
   state.generatedPlan = null;
+  state.savedPlans = [];
+  state.nearbyFilter = "all";
+  state.nearbyFilterLoaded = {};
   state.memorySummary = DEFAULT_MEMORY_SUMMARY;
   state.contextUpdatedAt = 0;
   state.travelMode = DEFAULT_SETTINGS.travelMode;
@@ -4158,6 +4526,8 @@ function resetTravelerSession() {
   state.menuOpen = false;
   state.chatMenuOpen = false;
   state.planBuilderOpen = false;
+  state.planWorkspace = "draft";
+  state.expandedSavedPlanId = null;
   state.planDragId = null;
   state.suggestionVisible = false;
   state.confirmedLanguage = localStorage.getItem(LOCAL_LANGUAGE_KEY) || DEFAULT_SETTINGS.language;
@@ -4178,6 +4548,7 @@ function resetTravelerSession() {
   setChats([createChat()]);
   localStorage.removeItem(LOCAL_PLAN_KEY);
   localStorage.removeItem(LOCAL_GENERATED_PLAN_KEY);
+  localStorage.removeItem(LOCAL_SAVED_PLANS_KEY);
 }
 
 async function hydrateUserState(firebaseUser) {
@@ -4209,10 +4580,15 @@ async function hydrateUserState(firebaseUser) {
     state.menuOpen = false;
     state.chatMenuOpen = false;
     state.planBuilderOpen = false;
+    state.planWorkspace = "draft";
+    state.expandedSavedPlanId = null;
     state.planDragId = null;
     state.suggestionVisible = false;
     state.plan = sanitizePlan(stored.plan ?? loadPlan());
     state.generatedPlan = sanitizeGeneratedPlan(stored.generatedPlan ?? loadGeneratedPlan());
+    state.savedPlans = sanitizeSavedPlans(stored.savedPlans ?? loadSavedPlans());
+    state.nearbyFilter = "all";
+    state.nearbyFilterLoaded = {};
     setChats(stored.chats, stored.activeChatId);
     state.memorySummary = String(stored.memorySummary || "").trim() || buildTravelerMemory();
     state.contextUpdatedAt = 0;
@@ -4220,6 +4596,7 @@ async function hydrateUserState(firebaseUser) {
     localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
     savePlan();
     saveGeneratedPlan();
+    saveSavedPlans();
     state.authStatus = "authenticated";
     schedulePersist();
   } catch (error) {
@@ -4227,6 +4604,7 @@ async function hydrateUserState(firebaseUser) {
     state.authStatus = "unauthenticated";
     state.authError = getAuthErrorMessage(error);
     state.user = null;
+    state.savedPlans = [];
     setChats([createChat()]);
   }
 
@@ -4380,6 +4758,7 @@ async function refreshContext() {
     await reverseGeocode();
     await fetchWeather();
     if (state.maps.ready) {
+      state.nearbyFilterLoaded = {};
       await loadNearbyPlaces();
       renderMarkers();
     }
@@ -4401,9 +4780,13 @@ function setMenuOpen(isOpen) {
 }
 
 function refreshVisibleMap() {
-  if (state.activeSection !== "map" || !state.maps.ready || !state.maps.map || !window.google?.maps) {
+  if (state.activeSection !== "map" || !state.maps.ready || !window.google?.maps) {
     return;
   }
+
+  ensureMapView();
+  els.mapCanvas.className = "";
+  els.mapCanvas.textContent = "";
 
   window.setTimeout(() => {
     if (!state.maps.map) {
@@ -4443,6 +4826,7 @@ function switchSection(section) {
 
   if (section === "map") {
     if (state.maps.ready) {
+      renderMap();
       refreshVisibleMap();
     } else if (isConfigured(GOOGLE_API_KEY)) {
       loadGoogleMaps()
@@ -4478,21 +4862,12 @@ async function requestInlineSuggestion() {
 
   state.quickSuggestion = buildQuickSuggestion();
   renderHero();
-  state.assistantMode = "text";
-  state.realtime.voiceEnabled = false;
-  switchSection("assistant");
-  schedulePersist();
-  renderAssistant();
-  els.chatInput.focus();
-  if (!state.realtime.connected) {
-    await connectRealtime();
-  }
-  await sendTextToAssistant(micro("suggestionPrompt"));
 }
 
 function acceptInlineSuggestion() {
   addSuggestedPlacesToPlan(3);
   state.suggestionVisible = false;
+  state.planWorkspace = "draft";
   switchSection("plan");
   renderAll();
 }
@@ -4506,6 +4881,7 @@ function openPlanBuilder() {
   if (!state.plan.length) {
     return;
   }
+  state.planWorkspace = "draft";
   els.planNameInput.value = state.generatedPlan?.name || "";
   els.planDateInput.value = state.generatedPlan?.date || getTodayIso();
   els.planStartTimeInput.value = state.generatedPlan?.startTime || "10:00";
@@ -4607,9 +4983,27 @@ function bindEvents() {
       return;
     }
 
+    const nearbyFilterButton = event.target.closest("[data-nearby-filter]");
+    if (nearbyFilterButton) {
+      const nextFilter = nearbyFilterButton.dataset.nearbyFilter;
+      if (nextFilter) {
+        state.nearbyFilter = nextFilter;
+        ensureNearbyFilterData(nextFilter).catch((error) => console.error(error));
+        renderNearby();
+      }
+      return;
+    }
+
+    const planWorkspaceButton = event.target.closest("[data-plan-workspace]");
+    if (planWorkspaceButton) {
+      switchPlanWorkspace(planWorkspaceButton.dataset.planWorkspace);
+      return;
+    }
+
     const saveButton = event.target.closest("[data-save-place]");
     if (saveButton) {
       addPlaceToPlan(saveButton.dataset.savePlace);
+      state.planWorkspace = "draft";
       switchSection("plan");
       return;
     }
@@ -4637,6 +5031,24 @@ function bindEvents() {
     const generatedMapsButton = event.target.closest("[data-open-generated-place]");
     if (generatedMapsButton) {
       openPlaceInMaps(generatedMapsButton.dataset.openGeneratedPlace);
+      return;
+    }
+
+    const savedPlanToggle = event.target.closest("[data-saved-plan-toggle]");
+    if (savedPlanToggle) {
+      toggleSavedPlan(savedPlanToggle.dataset.savedPlanToggle);
+      return;
+    }
+
+    const editSavedPlanButton = event.target.closest("[data-edit-saved-plan]");
+    if (editSavedPlanButton) {
+      editSavedPlan(editSavedPlanButton.dataset.editSavedPlan);
+      return;
+    }
+
+    const deleteSavedPlanButton = event.target.closest("[data-delete-saved-plan]");
+    if (deleteSavedPlanButton) {
+      deleteSavedPlan(deleteSavedPlanButton.dataset.deleteSavedPlan);
       return;
     }
 

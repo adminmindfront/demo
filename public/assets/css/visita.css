@@ -425,14 +425,14 @@ img {
 }
 
 .hero__suggestion-actions {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.55rem;
   margin-top: 0.8rem;
 }
 
 .hero__suggestion-actions .action-button {
-  flex: 1 1 160px;
+  width: 100%;
 }
 
 .hero__pills--hidden,
@@ -484,19 +484,33 @@ img {
 }
 
 .assistant-toolbar {
-  display: flex;
-  align-items: center;
+  display: grid;
   gap: 0.55rem;
 }
 
 .chat-menu {
   position: relative;
-  flex: 0 0 auto;
+  justify-self: start;
 }
 
 .chat-menu__trigger {
-  min-width: 5.5rem;
+  width: 2.95rem;
+  min-width: 2.95rem;
+  min-height: 2.95rem;
+  padding: 0.6rem;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
   color: var(--text);
+}
+
+.chat-menu__trigger span {
+  width: 1rem;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
 }
 
 .chat-menu__panel {
@@ -812,6 +826,13 @@ img {
   gap: 0.45rem;
 }
 
+.filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.85rem;
+}
+
 .mode-chip,
 .mini-tag,
 .status-pill {
@@ -970,6 +991,76 @@ img {
 
 .plan-grid {
   margin-bottom: 0.85rem;
+}
+
+.plan-switcher {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.55rem;
+  margin-bottom: 0.95rem;
+}
+
+.plan-workspace[hidden] {
+  display: none !important;
+}
+
+.saved-plans-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.saved-plan-card {
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+}
+
+.saved-plan-card__toggle {
+  width: 100%;
+  padding: 0.95rem;
+  display: grid;
+  gap: 0.22rem;
+  text-align: left;
+}
+
+.saved-plan-card__title {
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
+.saved-plan-card__meta,
+.saved-plan-card__summary {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.saved-plan-card__body {
+  display: grid;
+  gap: 0.8rem;
+  padding: 0 0.95rem 0.95rem;
+}
+
+.saved-plan-card__body[hidden] {
+  display: none;
+}
+
+.saved-plan-card__segment {
+  padding: 0.72rem 0.8rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.saved-plan-card__segment strong,
+.saved-plan-card__segment span {
+  display: block;
+}
+
+.saved-plan-card__segment span {
+  margin-top: 0.18rem;
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .plan-card {

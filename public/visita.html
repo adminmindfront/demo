@@ -234,7 +234,11 @@
 
             <div class="assistant-toolbar">
               <div class="chat-menu" id="chatMenu">
-                <button class="tiny-button chat-menu__trigger" id="chatMenuBtn" type="button" aria-expanded="false"></button>
+                <button class="tiny-button chat-menu__trigger" id="chatMenuBtn" type="button" aria-expanded="false" aria-label="Chats">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </button>
                 <div class="chat-menu__panel" id="chatMenuPanel" hidden>
                   <button class="tiny-button chat-menu__new" id="chatMenuNewBtn" type="button"></button>
                   <div class="thread-list" id="threadList"></div>
@@ -313,6 +317,7 @@
                   <p class="panel__subtitle" id="nearbySubtitle"></p>
                 </div>
               </div>
+              <div class="filter-row" id="nearbyFilterRow"></div>
               <div class="recommendation-grid" id="nearbyGrid"></div>
             </div>
           </section>
@@ -332,11 +337,22 @@
                   <p class="panel__subtitle" id="planSubtitle"></p>
                 </div>
               </div>
-              <div class="plan-grid" id="planGrid"></div>
-              <div class="plan-actions">
-                <button class="action-button action-button--primary" id="openPlanBuilderBtn" type="button"></button>
+              <div class="plan-switcher" id="planWorkspaceTabs">
+                <button class="tiny-button" id="draftPlanTabBtn" type="button" data-plan-workspace="draft"></button>
+                <button class="tiny-button" id="savedPlansTabBtn" type="button" data-plan-workspace="saved"></button>
               </div>
-              <div class="generated-plan" id="generatedPlan"></div>
+
+              <section class="plan-workspace" id="draftPlanWorkspace">
+                <div class="plan-grid" id="planGrid"></div>
+                <div class="plan-actions">
+                  <button class="action-button action-button--primary" id="openPlanBuilderBtn" type="button"></button>
+                </div>
+                <div class="generated-plan" id="generatedPlan"></div>
+              </section>
+
+              <section class="plan-workspace" id="savedPlansWorkspace" hidden>
+                <div class="saved-plans-list" id="savedPlansList"></div>
+              </section>
             </div>
           </section>
         </div>
