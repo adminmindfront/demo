@@ -1,6 +1,7 @@
 const functions = require("@google-cloud/functions-framework");
 
 const OPENAI_REALTIME_SECRET_URL = "https://api.openai.com/v1/realtime/client_secrets";
+const OPENAI_REALTIME_CALLS_URL = "https://api.openai.com/v1/realtime/calls";
 
 async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
   const controller = new AbortController();
@@ -67,6 +68,47 @@ async function createRealtimeSecret(apiKey, model, voice) {
   throw lastError || new Error("Realtime secret request failed");
 }
 
+async function createRealtimeCall(apiKey, offerSdp) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const openaiResponse = await fetchWithTimeout(
+        OPENAI_REALTIME_CALLS_URL,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/sdp",
+          },
+          body: offerSdp,
+        },
+        15000
+      );
+
+      const rawText = await openaiResponse.text();
+
+      if (!openaiResponse.ok) {
+        return {
+          ok: false,
+          status: openaiResponse.status,
+          rawText,
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        rawText,
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Realtime call request failed");
+}
+
 function setCors(res, origin = "*") {
   res.set("Access-Control-Allow-Origin", origin || "*");
   res.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -106,8 +148,34 @@ functions.http("helloHttp", async (req, res) => {
     req.body?.voice ||
     req.query?.voice ||
     "marin";
+  const offerSdp = req.body?.offerSdp || "";
 
   try {
+    if (offerSdp) {
+      const callResult = await createRealtimeCall(apiKey, offerSdp);
+
+      if (!callResult.ok) {
+        let detail = callResult.rawText;
+
+        try {
+          const parsed = JSON.parse(callResult.rawText);
+          detail = parsed?.error?.message || callResult.rawText;
+        } catch {}
+
+        res.status(callResult.status).json({
+          ok: false,
+          error: detail || "Failed to create realtime call",
+        });
+        return;
+      }
+
+      res.status(200).json({
+        ok: true,
+        sdp: callResult.rawText,
+      });
+      return;
+    }
+
     const result = await createRealtimeSecret(apiKey, model, voice);
 
     if (!result.ok) {

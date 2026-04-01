@@ -588,6 +588,44 @@ function normalizeRealtimeError(error) {
   return message || t("openaiMissing");
 }
 
+async function getRealtimeAnswerSdp(offerSdp) {
+  if (!OPENAI_TOKEN_ENDPOINT) {
+    return null;
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  try {
+    const response = await fetch(OPENAI_TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-realtime",
+        voice: "marin",
+        offerSdp,
+      }),
+      signal: controller.signal,
+    });
+
+    const data = await response.json().catch(() => null);
+
+    if (!response.ok) {
+      throw new Error(data?.error || `Realtime signaling endpoint failed with ${response.status}`);
+    }
+
+    if (!data?.sdp) {
+      throw new Error("Realtime signaling endpoint did not return SDP");
+    }
+
+    return data.sdp;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 function weatherLabel(code) {
   const key = WEATHER_CODES[code] || "clear";
   return WEATHER_TEXT[state.language][key] || WEATHER_TEXT.en[key];
@@ -1368,7 +1406,10 @@ async function loadGoogleMaps() {
   });
 
   state.maps.ready = true;
-  state.maps.map = new google.maps.Map(els.mapCanvas, {
+  const { Map } = await google.maps.importLibrary("maps");
+  await google.maps.importLibrary("places");
+
+  state.maps.map = new Map(els.mapCanvas, {
     center: DEFAULT_COORDS,
     zoom: 13,
     disableDefaultUI: true,
@@ -1976,7 +2017,13 @@ async function getRealtimeToken() {
 
         const data = await response.json();
         clearTimeout(timeoutId);
-        return data.client_secret?.value || data.value || data.client_secret;
+        const token = data.client_secret?.value || data.value || data.client_secret;
+
+        if (!token) {
+          throw new Error("Realtime endpoint did not return an ephemeral client secret");
+        }
+
+        return token;
       } catch (error) {
         clearTimeout(timeoutId);
         lastError = error;
@@ -2026,7 +2073,6 @@ async function connectRealtime() {
   renderAssistant();
 
   try {
-    const token = await getRealtimeToken();
     const pc = new RTCPeerConnection();
     state.realtime.pc = pc;
 
@@ -2069,32 +2115,41 @@ async function connectRealtime() {
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
-    const response = await fetch("https://api.openai.com/v1/realtime/calls", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/sdp",
-      },
-      body: offer.sdp,
-    });
+    let answerSdp = null;
 
-    if (!response.ok) {
-      const rawError = await response.text();
-      let detail = "";
+    if (OPENAI_TOKEN_ENDPOINT) {
+      answerSdp = await getRealtimeAnswerSdp(offer.sdp);
+    } else {
+      const token = await getRealtimeToken();
+      const response = await fetch("https://api.openai.com/v1/realtime/calls", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/sdp",
+        },
+        body: offer.sdp,
+      });
 
-      try {
-        const parsed = JSON.parse(rawError);
-        detail = parsed?.error?.message || rawError;
-      } catch {
-        detail = rawError;
+      if (!response.ok) {
+        const rawError = await response.text();
+        let detail = "";
+
+        try {
+          const parsed = JSON.parse(rawError);
+          detail = parsed?.error?.message || rawError;
+        } catch {
+          detail = rawError;
+        }
+
+        throw new Error(getRealtimeSdpErrorMessage(detail));
       }
 
-      throw new Error(getRealtimeSdpErrorMessage(detail));
+      answerSdp = await response.text();
     }
 
     const answer = {
       type: "answer",
-      sdp: await response.text(),
+      sdp: answerSdp,
     };
     await pc.setRemoteDescription(answer);
 
