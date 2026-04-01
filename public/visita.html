@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visita Inteligente</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Noto+Sans:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./assets/css/visita.css" />
+  </head>
+  <body>
+    <div class="language-gate" id="languageGate">
+      <section class="language-card">
+        <h1 id="languageTitle"></h1>
+        <p id="languageHint"></p>
+        <div class="language-grid" id="languageGrid"></div>
+      </section>
+    </div>
+
+    <div class="auth-gate" id="authGate">
+      <section class="auth-card">
+        <div class="auth-card__copy">
+          <span class="auth-card__eyebrow" id="authEyebrow"></span>
+          <h2 id="authTitle"></h2>
+          <p id="authSubtitle"></p>
+          <div class="auth-card__bullets" id="authBullets"></div>
+        </div>
+
+        <div class="auth-card__form">
+          <div class="auth-toggle">
+            <button class="tiny-button is-active" id="authLoginModeBtn" type="button"></button>
+            <button class="tiny-button" id="authSignupModeBtn" type="button"></button>
+          </div>
+
+          <div class="auth-feedback auth-feedback--success" id="authMessage"></div>
+          <div class="auth-feedback auth-feedback--error" id="authError"></div>
+
+          <form class="auth-form" id="authForm">
+            <label class="auth-field" id="authNameField">
+              <span id="authNameLabel"></span>
+              <input id="authNameInput" type="text" autocomplete="name" />
+            </label>
+
+            <label class="auth-field">
+              <span id="authEmailLabel"></span>
+              <input id="authEmailInput" type="email" autocomplete="email" required />
+            </label>
+
+            <label class="auth-field">
+              <span id="authPasswordLabel"></span>
+              <input id="authPasswordInput" type="password" autocomplete="current-password" required />
+            </label>
+
+            <button class="action-button action-button--primary auth-submit" id="authSubmitBtn" type="submit"></button>
+          </form>
+
+          <div class="auth-divider" id="authDivider"></div>
+          <button class="action-button auth-google" id="authGoogleBtn" type="button"></button>
+          <p class="auth-legal" id="authLegal"></p>
+        </div>
+      </section>
+    </div>
+
+    <div class="shell">
+      <header class="hero">
+        <div class="hero__top">
+          <div class="brand">
+            <div class="brand__badge">AI</div>
+            <div class="brand__meta">
+              <strong id="brandTitle"></strong>
+              <span id="brandSubtitle"></span>
+            </div>
+          </div>
+
+          <div class="hero__controls">
+            <div class="account-pill" id="accountPill"></div>
+            <button class="pill-button" id="authLogoutBtn" type="button"></button>
+            <button class="pill-button" id="changeLanguageBtn" type="button"></button>
+            <button class="pill-button" id="locateBtn" type="button"></button>
+            <button class="pill-button" id="refreshBtn" type="button"></button>
+          </div>
+        </div>
+
+        <div class="hero__body">
+          <div>
+            <div class="hero__eyebrow" id="heroEyebrow"></div>
+            <h1 class="hero__title" id="heroTitle"></h1>
+            <p class="hero__subtitle" id="heroSubtitle"></p>
+            <div class="hero__pills">
+              <div class="hero-pill" id="locationPill"></div>
+              <div class="hero-pill" id="weatherPill"></div>
+              <div class="hero-pill" id="planPill"></div>
+            </div>
+          </div>
+
+          <div class="hero__stack">
+            <article class="hero__suggestion">
+              <h2 id="suggestionHeading"></h2>
+              <p id="suggestionText"></p>
+            </article>
+            <article class="hero-note">
+              <strong id="assistantPreviewHeading"></strong>
+              <span id="assistantPreviewText"></span>
+            </article>
+            <article class="hero-note">
+              <strong id="keysHeading"></strong>
+              <span id="keysText"></span>
+            </article>
+          </div>
+        </div>
+      </header>
+
+      <main class="layout">
+        <div class="main-column">
+          <section class="summary-grid">
+            <article class="panel summary-card">
+              <div class="summary-card__label" id="locationCardLabel"></div>
+              <div class="summary-card__value" id="locationCardValue"></div>
+              <div class="summary-card__hint" id="locationCardHint"></div>
+            </article>
+
+            <article class="panel summary-card">
+              <div class="summary-card__label" id="weatherCardLabel"></div>
+              <div class="summary-card__value" id="weatherCardValue"></div>
+              <div class="summary-card__hint" id="weatherCardHint"></div>
+            </article>
+
+            <article class="panel summary-card">
+              <div class="summary-card__label" id="timingCardLabel"></div>
+              <div class="summary-card__value" id="timingCardValue"></div>
+              <div class="summary-card__hint" id="timingCardHint"></div>
+            </article>
+          </section>
+
+          <section class="panel">
+            <div class="panel__head">
+              <div>
+                <h2 class="panel__title" id="mapTitle"></h2>
+                <p class="panel__subtitle" id="mapSubtitle"></p>
+              </div>
+              <div class="mode-group" id="travelModeGroup"></div>
+            </div>
+            <div class="map-wrap">
+              <div id="mapCanvas" class="map-empty"></div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel__head">
+              <div>
+                <h2 class="panel__title" id="nearbyTitle"></h2>
+                <p class="panel__subtitle" id="nearbySubtitle"></p>
+              </div>
+            </div>
+            <div class="recommendation-grid" id="nearbyGrid"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel__head">
+              <div>
+                <h2 class="panel__title" id="planTitle"></h2>
+                <p class="panel__subtitle" id="planSubtitle"></p>
+              </div>
+            </div>
+            <div class="plan-grid" id="planGrid"></div>
+          </section>
+        </div>
+
+        <aside class="assistant assistant-column">
+          <div>
+            <div class="assistant__head">
+              <div>
+                <h2 class="assistant__title" id="assistantTitle"></h2>
+                <p class="assistant__subtitle" id="assistantSubtitle"></p>
+              </div>
+            </div>
+
+            <div class="assistant__controls">
+              <button class="action-button action-button--primary" id="connectBtn" type="button"></button>
+              <button class="action-button" id="disconnectBtn" type="button"></button>
+              <button class="action-button" id="contextBtn" type="button"></button>
+            </div>
+
+            <div class="assistant__toggles">
+              <button class="tiny-button" id="micBtn" type="button"></button>
+              <button class="tiny-button" id="voiceBtn" type="button"></button>
+            </div>
+
+            <div class="assistant__status">
+              <div class="status-pill" id="connectionStatus">
+                <span class="status-pill__dot"></span>
+                <span id="connectionStatusText"></span>
+              </div>
+              <div class="status-pill" id="locationStatus">
+                <span class="status-pill__dot"></span>
+                <span id="locationStatusText"></span>
+              </div>
+            </div>
+
+            <div class="assistant__notice" id="assistantNotice"></div>
+          </div>
+
+          <section class="thread-panel">
+            <div class="thread-panel__head">
+              <div>
+                <strong id="chatsHeading"></strong>
+                <p id="chatsHint"></p>
+              </div>
+              <button class="tiny-button" id="newChatBtn" type="button"></button>
+            </div>
+            <div class="thread-list" id="threadList"></div>
+          </section>
+
+          <div class="chat-quick" id="quickPrompts"></div>
+          <div class="chat-log" id="chatLog"></div>
+
+          <form class="chat-form" id="chatForm">
+            <textarea id="chatInput"></textarea>
+            <div class="chat-form__actions">
+              <div class="helper-row" id="helperRow"></div>
+              <button class="action-button action-button--warm" type="submit" id="sendBtn"></button>
+            </div>
+          </form>
+        </aside>
+      </main>
+    </div>
+
+    <audio id="remoteAudio" autoplay></audio>
+
+    <script type="module" src="./assets/js/visita.js"></script>
+  </body>
+</html>
