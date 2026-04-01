@@ -142,9 +142,13 @@
           <p class="hero__subtitle" id="heroSubtitle"></p>
         </div>
         <button class="action-button action-button--primary hero__cta" id="suggestionBtn" type="button"></button>
-        <article class="hero__suggestion hero__suggestion--compact">
+        <article class="hero__suggestion hero__suggestion--compact" id="heroSuggestionCard" hidden>
           <h2 id="suggestionHeading"></h2>
           <p id="suggestionText"></p>
+          <div class="hero__suggestion-actions">
+            <button class="action-button action-button--primary" id="acceptSuggestionBtn" type="button"></button>
+            <button class="action-button" id="rejectSuggestionBtn" type="button"></button>
+          </div>
         </article>
         <div class="hero__pills hero__pills--hidden" aria-hidden="true">
           <div class="hero-pill" id="locationPill"></div>
@@ -228,9 +232,19 @@
 
             <div class="assistant__notice" id="assistantNotice"></div>
 
-            <div class="assistant-mode" id="assistantModeTabs">
-              <button class="tiny-button" id="voiceModeBtn" type="button" data-assistant-mode="voice"></button>
-              <button class="tiny-button" id="textModeBtn" type="button" data-assistant-mode="text"></button>
+            <div class="assistant-toolbar">
+              <div class="chat-menu" id="chatMenu">
+                <button class="tiny-button chat-menu__trigger" id="chatMenuBtn" type="button" aria-expanded="false"></button>
+                <div class="chat-menu__panel" id="chatMenuPanel" hidden>
+                  <button class="tiny-button chat-menu__new" id="chatMenuNewBtn" type="button"></button>
+                  <div class="thread-list" id="threadList"></div>
+                </div>
+              </div>
+
+              <div class="assistant-mode" id="assistantModeTabs">
+                <button class="tiny-button" id="voiceModeBtn" type="button" data-assistant-mode="voice"></button>
+                <button class="tiny-button" id="textModeBtn" type="button" data-assistant-mode="text"></button>
+              </div>
             </div>
 
             <section class="assistant-voice-pane" id="assistantVoicePane">
@@ -250,27 +264,13 @@
             </section>
 
             <section class="assistant-text-pane" id="assistantTextPane">
-              <section class="thread-panel">
-                <div class="thread-panel__head">
-                  <div>
-                    <strong id="chatsHeading"></strong>
-                    <p id="chatsHint"></p>
-                  </div>
-                  <button class="tiny-button" id="newChatBtn" type="button"></button>
-                </div>
-                <div class="thread-list" id="threadList"></div>
-              </section>
-
               <div class="chat-quick legacy-hidden" id="quickPrompts"></div>
               <div class="chat-shell">
                 <div class="chat-log" id="chatLog"></div>
 
                 <form class="chat-form" id="chatForm">
                   <textarea id="chatInput"></textarea>
-                  <div class="chat-form__actions">
-                    <div class="helper-row legacy-hidden" id="helperRow"></div>
-                    <button class="action-button action-button--warm" type="submit" id="sendBtn"></button>
-                  </div>
+                  <button class="action-button action-button--warm" type="submit" id="sendBtn"></button>
                 </form>
               </div>
             </section>
@@ -365,6 +365,10 @@
           <label class="auth-field">
             <span id="planStartTimeLabel"></span>
             <input id="planStartTimeInput" type="time" required />
+          </label>
+          <label class="auth-field">
+            <span id="planTravelModeLabel"></span>
+            <select id="planTravelModeInput" required></select>
           </label>
           <div class="plan-builder-form__actions">
             <button class="action-button" id="planBuilderCancelBtn" type="button"></button>

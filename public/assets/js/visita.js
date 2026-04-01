@@ -432,6 +432,7 @@ const state = {
   nearbyPlaces: [],
   selectedPlaceId: null,
   quickSuggestion: "",
+  suggestionVisible: false,
   contextUpdatedAt: 0,
   user: null,
   authStatus: "loading",
@@ -442,6 +443,7 @@ const state = {
   assistantMode: DEFAULT_SETTINGS.assistantMode,
   activeSection: "assistant",
   menuOpen: false,
+  chatMenuOpen: false,
   planBuilderOpen: false,
   generatedPlan: loadGeneratedPlan(),
   planDragId: null,
@@ -541,6 +543,9 @@ const els = {
   planPill: document.getElementById("planPill"),
   suggestionHeading: document.getElementById("suggestionHeading"),
   suggestionText: document.getElementById("suggestionText"),
+  heroSuggestionCard: document.getElementById("heroSuggestionCard"),
+  acceptSuggestionBtn: document.getElementById("acceptSuggestionBtn"),
+  rejectSuggestionBtn: document.getElementById("rejectSuggestionBtn"),
   assistantPreviewHeading: document.getElementById("assistantPreviewHeading"),
   assistantPreviewText: document.getElementById("assistantPreviewText"),
   keysHeading: document.getElementById("keysHeading"),
@@ -595,6 +600,10 @@ const els = {
   locationStatusText: document.getElementById("locationStatusText"),
   assistantNotice: document.getElementById("assistantNotice"),
   assistantModeTabs: document.getElementById("assistantModeTabs"),
+  chatMenu: document.getElementById("chatMenu"),
+  chatMenuBtn: document.getElementById("chatMenuBtn"),
+  chatMenuPanel: document.getElementById("chatMenuPanel"),
+  chatMenuNewBtn: document.getElementById("chatMenuNewBtn"),
   voiceModeBtn: document.getElementById("voiceModeBtn"),
   textModeBtn: document.getElementById("textModeBtn"),
   assistantVoicePane: document.getElementById("assistantVoicePane"),
@@ -603,15 +612,11 @@ const els = {
   voiceVisualizerTitle: document.getElementById("voiceVisualizerTitle"),
   voiceVisualizerHint: document.getElementById("voiceVisualizerHint"),
   voiceSessionBtn: document.getElementById("voiceSessionBtn"),
-  chatsHeading: document.getElementById("chatsHeading"),
-  chatsHint: document.getElementById("chatsHint"),
-  newChatBtn: document.getElementById("newChatBtn"),
   threadList: document.getElementById("threadList"),
   quickPrompts: document.getElementById("quickPrompts"),
   chatLog: document.getElementById("chatLog"),
   chatForm: document.getElementById("chatForm"),
   chatInput: document.getElementById("chatInput"),
-  helperRow: document.getElementById("helperRow"),
   sendBtn: document.getElementById("sendBtn"),
   suggestionBtn: document.getElementById("suggestionBtn"),
   planBuilderSheet: document.getElementById("planBuilderSheet"),
@@ -625,6 +630,8 @@ const els = {
   planDateInput: document.getElementById("planDateInput"),
   planStartTimeLabel: document.getElementById("planStartTimeLabel"),
   planStartTimeInput: document.getElementById("planStartTimeInput"),
+  planTravelModeLabel: document.getElementById("planTravelModeLabel"),
+  planTravelModeInput: document.getElementById("planTravelModeInput"),
   planBuilderCancelBtn: document.getElementById("planBuilderCancelBtn"),
   planBuilderSubmitBtn: document.getElementById("planBuilderSubmitBtn"),
   remoteAudio: document.getElementById("remoteAudio"),
@@ -672,6 +679,136 @@ function micro(key) {
   return MICRO_UI[state.language]?.[key]
     || MICRO_UI.en[key]
     || key;
+}
+
+function localizedText(labels) {
+  return labels[state.language] || labels.en || Object.values(labels)[0] || "";
+}
+
+function getCompactAuthTitle() {
+  return localizedText({
+    es: "Inicia sesion para continuar.",
+    en: "Sign in to continue.",
+    fr: "Connectez-vous pour continuer.",
+    pt: "Entre para continuar.",
+    ja: "ç¶šè¡Œã™ã‚‹ã«ã¯ãƒ­ã‚°ã‚¤ãƒ³ã—ã¦ãã ã•ã„ã€‚",
+    ko: "ê³„ì†í•˜ë ¤ë©´ ë¡œê·¸ì¸í•˜ì„¸ìš”.",
+    ar: "Ø³Ø¬Ù„ Ø§Ù„Ø¯Ø®ÙˆÙ„ Ù„Ù„Ù…ØªØ§Ø¨Ø¹Ø©.",
+    zh: "ç™»å½•åŽç»§ç»­ã€‚",
+    de: "Melde dich an, um fortzufahren.",
+  });
+}
+
+function getSuggestionLoadingText() {
+  return localizedText({
+    es: "Estoy preparando una sugerencia con tu ubicacion, clima y lugares cercanos...",
+    en: "I am preparing a suggestion using your location, weather, and nearby places...",
+    fr: "Je prepare une suggestion avec votre position, la meteo et les lieux proches...",
+    pt: "Estou preparando uma sugestao com sua localizacao, clima e lugares proximos...",
+    ja: "ä½ç½®ã€å¤©æ°—ã€è¿‘ãã®å ´æ‰€ã‚’ä½¿ã£ã¦ææ¡ˆã‚’æº–å‚™ã—ã¦ã„ã¾ã™...",
+    ko: "ìœ„ì¹˜, ë‚ ì”¨, ê·¼ì²˜ ìž¥ì†Œë¥¼ ë°”íƒ•ìœ¼ë¡œ ì¶”ì²œì„ ì¤€ë¹„í•˜ê³  ìžˆìŠµë‹ˆë‹¤...",
+    ar: "Ø£Ø¬Ù‡Ø² Ø§Ù‚ØªØ±Ø§Ø­Ù‹Ø§ Ø¨Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯ Ø¹Ù„Ù‰ Ù…ÙˆÙ‚Ø¹Ùƒ ÙˆØ§Ù„Ø·Ù‚Ø³ ÙˆØ§Ù„Ø£Ù…Ø§ÙƒÙ† Ø§Ù„Ù‚Ø±ÙŠØ¨Ø©...",
+    zh: "æ­£åœ¨æ ¹æ®ä½ çš„ä½ç½®ã€å¤©æ°”å’Œé™„è¿‘åœ°ç‚¹å‡†å¤‡å»ºè®®...",
+    de: "Ich bereite gerade einen Vorschlag mit deinem Standort, Wetter und Orten in der Naehe vor...",
+  });
+}
+
+function getAcceptPlanLabel() {
+  return localizedText({
+    es: "Aceptar plan",
+    en: "Accept plan",
+    fr: "Accepter le plan",
+    pt: "Aceitar plano",
+    ja: "ã“ã®ãƒ—ãƒ©ãƒ³ã‚’æŽ¡ç”¨",
+    ko: "í”Œëžœ ìˆ˜ë½",
+    ar: "Ù‚Ø¨ÙˆÙ„ Ø§Ù„Ø®Ø·Ø©",
+    zh: "接受计划",
+    de: "Plan annehmen",
+  });
+}
+
+function getRejectPlanLabel() {
+  return localizedText({
+    es: "Rechazar plan",
+    en: "Reject plan",
+    fr: "Refuser le plan",
+    pt: "Recusar plano",
+    ja: "ãƒ—ãƒ©ãƒ³ã‚’è¦‹é€ã‚‹",
+    ko: "í”Œëžœ ê±°ì ˆ",
+    ar: "Ø±ÙØ¶ Ø§Ù„Ø®Ø·Ø©",
+    zh: "拒绝计划",
+    de: "Plan ablehnen",
+  });
+}
+
+function getChatMenuLabel() {
+  return localizedText({
+    es: "Chats",
+    en: "Chats",
+    fr: "Chats",
+    pt: "Chats",
+    ja: "ãƒãƒ£ãƒƒãƒˆ",
+    ko: "ì±„íŒ…",
+    ar: "Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø§Øª",
+    zh: "聊天",
+    de: "Chats",
+  });
+}
+
+function getNewChatMenuLabel() {
+  return localizedText({
+    es: "Nuevo chat +",
+    en: "New chat +",
+    fr: "Nouveau chat +",
+    pt: "Novo chat +",
+    ja: "æ–°ã—ã„ãƒãƒ£ãƒƒãƒˆ +",
+    ko: "ìƒˆ ì±„íŒ… +",
+    ar: "Ù…Ø­Ø§Ø¯Ø«Ø© Ø¬Ø¯ÙŠØ¯Ø© +",
+    zh: "新建聊天 +",
+    de: "Neuer Chat +",
+  });
+}
+
+function getDeleteChatLabel() {
+  return localizedText({
+    es: "Borrar chat",
+    en: "Delete chat",
+    fr: "Supprimer le chat",
+    pt: "Excluir chat",
+    ja: "ãƒãƒ£ãƒƒãƒˆã‚’å‰Šé™¤",
+    ko: "ì±„íŒ… ì‚­ì œ",
+    ar: "Ø­Ø°Ù Ø§Ù„Ù…Ø­Ø§Ø¯Ø«Ø©",
+    zh: "删除聊天",
+    de: "Chat loeschen",
+  });
+}
+
+function getMessagePlaceholder() {
+  return localizedText({
+    es: "Escribe tu mensaje",
+    en: "Write your message",
+    fr: "Ecris ton message",
+    pt: "Escreva sua mensagem",
+    ja: "ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸ã‚’å…¥åŠ›",
+    ko: "ë©”ì‹œì§€ë¥¼ ìž…ë ¥í•˜ì„¸ìš”",
+    ar: "Ø§ÙƒØªØ¨ Ø±Ø³Ø§Ù„ØªÙƒ",
+    zh: "输入你的消息",
+    de: "Schreibe deine Nachricht",
+  });
+}
+
+function getPlanTravelModeLabel() {
+  return localizedText({
+    es: "Modo de traslado",
+    en: "Travel mode",
+    fr: "Mode de transport",
+    pt: "Modo de deslocamento",
+    ja: "ç§»å‹•æ‰‹æ®µ",
+    ko: "ì´ë™ ìˆ˜ë‹¨",
+    ar: "ÙˆØ³ÙŠÙ„Ø© Ø§Ù„ØªÙ†Ù‚Ù„",
+    zh: "出行方式",
+    de: "Verkehrsart",
+  });
 }
 
 function langMeta(code = state.language) {
@@ -1646,23 +1783,10 @@ function renderAccordionPanels() {
 }
 
 function renderAuthGate() {
-  els.authEyebrow.textContent = t("authEyebrow");
-  els.authTitle.textContent = t("authTitle");
-  els.authSubtitle.textContent = t("authSubtitle");
-  els.authBullets.innerHTML = [
-    ["authBullet1Title", "authBullet1Text"],
-    ["authBullet2Title", "authBullet2Text"],
-    ["authBullet3Title", "authBullet3Text"],
-  ]
-    .map(
-      ([titleKey, textKey]) => `
-        <article class="auth-bullet">
-          <strong>${escapeHtml(t(titleKey))}</strong>
-          <span>${escapeHtml(t(textKey))}</span>
-        </article>
-      `
-    )
-    .join("");
+  els.authEyebrow.textContent = "";
+  els.authTitle.textContent = getCompactAuthTitle();
+  els.authSubtitle.textContent = "";
+  els.authBullets.innerHTML = "";
 
   els.authLoginModeBtn.textContent = t("authLogin");
   els.authSignupModeBtn.textContent = t("authSignup");
@@ -1677,7 +1801,7 @@ function renderAuthGate() {
   els.authGoogleBtn.textContent = t("authGoogle");
   els.authGoogleBtn.disabled = state.isAuthSubmitting;
   els.authDivider.dataset.label = getEmailDividerLabel();
-  els.authLegal.textContent = t("authLegal");
+  els.authLegal.textContent = "";
 
   els.authMessage.textContent = state.authMessage;
   els.authMessage.style.display = state.authMessage ? "block" : "none";
@@ -1701,7 +1825,7 @@ function renderTravelModes() {
 function renderHero() {
   const lang = langMeta();
   els.brandTitle.textContent = t("brandTitle");
-  els.brandSubtitle.textContent = t("brandSubtitle");
+  els.brandSubtitle.textContent = "";
   els.accountPill.innerHTML = state.user
     ? `
         ${state.user.photoURL ? `<img class="account-pill__avatar" src="${escapeHtml(state.user.photoURL)}" alt="${escapeHtml(state.user.displayName || state.user.email || "Profile")}" />` : ""}
@@ -1717,12 +1841,15 @@ function renderHero() {
   els.languageQuickBtn.setAttribute("aria-label", t("changeLanguage"));
   els.locateBtn.textContent = t("locate");
   els.refreshBtn.textContent = t("refresh");
-  els.heroEyebrow.textContent = `* ${t("heroEyebrow")}`;
-  els.heroTitle.textContent = micro("compactHeroTitle");
-  els.heroSubtitle.textContent = t("heroSubtitle");
+  els.heroEyebrow.textContent = "";
+  els.heroTitle.textContent = "";
+  els.heroSubtitle.textContent = "";
   els.suggestionBtn.textContent = micro("suggestionButton");
   els.suggestionHeading.textContent = micro("suggestionHeadingCompact");
-  els.suggestionText.textContent = state.quickSuggestion || t("fallbackGreeting");
+  els.suggestionText.textContent = state.quickSuggestion || getSuggestionLoadingText();
+  els.acceptSuggestionBtn.textContent = getAcceptPlanLabel();
+  els.rejectSuggestionBtn.textContent = getRejectPlanLabel();
+  els.heroSuggestionCard.hidden = !state.suggestionVisible;
   els.assistantPreviewHeading.textContent = t("assistantPreviewHeading");
   els.assistantPreviewText.textContent = t("assistantPreviewText");
   els.keysHeading.textContent = t("keysHeading");
@@ -1945,9 +2072,10 @@ function renderAssistant() {
   els.voiceVisual.classList.toggle("is-listening", !state.realtime.assistantSpeaking);
   els.voiceVisualizerTitle.textContent = voiceCopy.title;
   els.voiceVisualizerHint.textContent = voiceCopy.hint;
-  els.chatsHeading.textContent = t("chatsHeading");
-  els.chatsHint.textContent = t("chatsHint");
-  els.newChatBtn.textContent = t("newChat");
+  els.chatMenuBtn.textContent = getChatMenuLabel();
+  els.chatMenuBtn.setAttribute("aria-expanded", state.chatMenuOpen ? "true" : "false");
+  els.chatMenuPanel.hidden = !state.chatMenuOpen;
+  els.chatMenuNewBtn.textContent = getNewChatMenuLabel();
   els.connectBtn.textContent = t("connect");
   els.disconnectBtn.textContent = t("disconnect");
   els.contextBtn.textContent = t("refreshContext");
@@ -1966,7 +2094,7 @@ function renderAssistant() {
     : hasRealtimeAuth()
       ? ""
       : t("openaiMissing");
-  els.chatInput.placeholder = t("placeholder");
+  els.chatInput.placeholder = getMessagePlaceholder();
   els.sendBtn.textContent = t("send");
   els.disconnectBtn.disabled = !state.realtime.connected && !state.realtime.connecting;
   els.connectBtn.disabled = !state.user || state.realtime.connected || state.realtime.connecting;
@@ -1974,16 +2102,13 @@ function renderAssistant() {
   els.voiceSessionBtn.disabled = !state.user || !hasRealtimeAuth();
   els.voiceModeBtn.disabled = !state.user;
   els.textModeBtn.disabled = !state.user;
+  els.chatMenuBtn.disabled = !state.user;
+  els.chatMenuNewBtn.disabled = !state.user;
   els.chatInput.disabled = !state.user;
   els.sendBtn.disabled = !state.user;
-  els.newChatBtn.disabled = !state.user;
   els.quickPrompts.innerHTML = [t("quick1"), t("quick2"), t("quick3"), t("quick4")]
     .map((prompt) => `<button class="tiny-button" type="button" data-prompt="${escapeHtml(prompt)}">${escapeHtml(prompt)}</button>`)
     .join("");
-  els.helperRow.innerHTML = `
-    <button class="tiny-button" type="button" data-helper="plan">${escapeHtml(t("quick1"))}</button>
-    <button class="tiny-button" type="button" data-helper="weather">${escapeHtml(t("weatherAdvice"))}</button>
-  `;
 }
 
 function renderThreads() {
@@ -1999,11 +2124,16 @@ function renderThreads() {
       const meta = chat.id === state.activeChatId ? t("threadNow") : formatDateTime(new Date(chat.updatedAt));
 
       return `
-        <button class="thread-item ${chat.id === state.activeChatId ? "is-active" : ""}" type="button" data-chat-id="${chat.id}">
-          <span class="thread-item__title">${escapeHtml(chat.title)}</span>
-          <span class="thread-item__meta">${escapeHtml(meta)}</span>
-          <span class="thread-item__preview">${escapeHtml(preview.slice(0, 84))}</span>
-        </button>
+        <div class="thread-item-row">
+          <button class="thread-item ${chat.id === state.activeChatId ? "is-active" : ""}" type="button" data-chat-id="${chat.id}">
+            <span class="thread-item__title">${escapeHtml(chat.title)}</span>
+            <span class="thread-item__meta">${escapeHtml(meta)}</span>
+            <span class="thread-item__preview">${escapeHtml(preview.slice(0, 84))}</span>
+          </button>
+          <button class="thread-item__delete" type="button" data-delete-chat="${chat.id}" aria-label="${escapeHtml(getDeleteChatLabel())}" title="${escapeHtml(getDeleteChatLabel())}">
+            x
+          </button>
+        </div>
       `;
     })
     .join("");
@@ -2011,11 +2141,7 @@ function renderThreads() {
 
 function renderChat() {
   if (!state.messages.length) {
-    els.chatLog.innerHTML = `<div class="empty-state">${escapeHtml(
-      !state.user
-        ? t("loginRequired")
-        : t("starterQuestion")
-    )}</div>`;
+    els.chatLog.innerHTML = "";
     return;
   }
 
@@ -2038,6 +2164,10 @@ function renderPlanBuilder() {
   els.planNameLabel.textContent = micro("planNameLabel");
   els.planDateLabel.textContent = micro("planDateLabel");
   els.planStartTimeLabel.textContent = micro("planStartTimeLabel");
+  els.planTravelModeLabel.textContent = getPlanTravelModeLabel();
+  els.planTravelModeInput.innerHTML = Object.entries(t("travelModes"))
+    .map(([mode, label]) => `<option value="${escapeHtml(mode)}">${escapeHtml(label)}</option>`)
+    .join("");
   els.planNameInput.placeholder = micro("planNamePlaceholder");
   els.planBuilderCancelBtn.textContent = micro("planBuilderCancel");
   els.planBuilderSubmitBtn.textContent = micro("planBuilderSubmit");
@@ -2052,6 +2182,7 @@ function renderPlanBuilder() {
   if (!els.planNameInput.value) {
     els.planNameInput.value = state.generatedPlan?.name || "";
   }
+  els.planTravelModeInput.value = state.generatedPlan?.travelModeKey || state.travelMode;
 }
 
 function renderMap() {
@@ -2539,7 +2670,7 @@ function buildRouteSummary(leg) {
   return `${travelText} · ${leg.distance?.text || ""}`.trim();
 }
 
-async function getRouteBetween(origin, destination, { render = false, departureTime = null } = {}) {
+async function getRouteBetween(origin, destination, { render = false, departureTime = null, travelMode = state.travelMode } = {}) {
   if (!origin || !destination || !state.maps.directionsService) {
     return null;
   }
@@ -2547,10 +2678,10 @@ async function getRouteBetween(origin, destination, { render = false, departureT
   const request = {
     origin,
     destination,
-    travelMode: google.maps.TravelMode[state.travelMode],
+    travelMode: google.maps.TravelMode[travelMode] || google.maps.TravelMode[state.travelMode],
   };
 
-  if (state.travelMode === "DRIVING" && departureTime instanceof Date) {
+  if (travelMode === "DRIVING" && departureTime instanceof Date) {
     request.drivingOptions = {
       departureTime,
       trafficModel: "bestguess",
@@ -2655,6 +2786,30 @@ function addPlaceToPlan(placeId) {
   schedulePersist();
   renderPlan();
   renderHero();
+}
+
+function addSuggestedPlacesToPlan(limit = 3) {
+  const suggestedPlaces = getRecommendedPlaces(limit);
+  let added = 0;
+
+  suggestedPlaces.forEach((place) => {
+    if (!place || state.plan.some((item) => item.id === place.id)) {
+      return;
+    }
+
+    state.plan = [...state.plan, { ...place, routeSummary: t("routeNone") }];
+    added += 1;
+  });
+
+  if (!added) {
+    return 0;
+  }
+
+  invalidateGeneratedPlan();
+  savePlan();
+  scheduleMemoryRefresh();
+  schedulePersist();
+  return added;
 }
 
 function removePlaceFromPlan(placeId) {
@@ -2921,6 +3076,7 @@ async function buildTravelerPlan({
   name = "",
   date = getTodayIso(),
   startTime = "10:00",
+  travelMode = state.travelMode,
 } = {}) {
   const places = state.plan.filter((place) => place?.location);
   if (!places.length) {
@@ -2942,6 +3098,7 @@ async function buildTravelerPlan({
   for (const place of places) {
     const route = await getRouteBetween(cursorLocation, place.location, {
       departureTime: cursorTime,
+      travelMode,
     });
     const travelMinutes = route
       ? Math.max(1, Math.round((route.durationInTrafficValue || route.durationValue || 0) / 60))
@@ -2985,10 +3142,11 @@ async function buildTravelerPlan({
     name: String(name || "").trim() || t("planTitle"),
     date,
     startTime,
+    travelModeKey: travelMode,
     startDateTime: startDate.toISOString(),
     endDateTime: cursorTime.toISOString(),
     createdAt: Date.now(),
-    travelMode: t("travelModes")[state.travelMode] || state.travelMode,
+    travelMode: t("travelModes")[travelMode] || travelMode,
     basedOnLocation: state.location?.displayName || DEFAULT_COORDS.name,
     totalTravelMinutes,
     totalVisitMinutes,
@@ -3970,6 +4128,8 @@ function sanitizeGeneratedPlan(plan) {
     name: String(plan.name || "").trim(),
     date: String(plan.date || ""),
     startTime: String(plan.startTime || ""),
+    travelModeKey: String(plan.travelModeKey || ""),
+    travelMode: String(plan.travelMode || ""),
     summary: String(plan.summary || ""),
     items: plan.items
       .filter((item) => item && typeof item === "object" && item.placeId)
@@ -3996,8 +4156,10 @@ function resetTravelerSession() {
   state.travelMode = DEFAULT_SETTINGS.travelMode;
   state.activeSection = "assistant";
   state.menuOpen = false;
+  state.chatMenuOpen = false;
   state.planBuilderOpen = false;
   state.planDragId = null;
+  state.suggestionVisible = false;
   state.confirmedLanguage = localStorage.getItem(LOCAL_LANGUAGE_KEY) || DEFAULT_SETTINGS.language;
   state.languageConfirmed =
     localStorage.getItem(LOCAL_LANGUAGE_CONFIRMED_KEY) === "1"
@@ -4045,8 +4207,10 @@ async function hydrateUserState(firebaseUser) {
     state.realtime.assistantSpeaking = false;
     state.activeSection = "assistant";
     state.menuOpen = false;
+    state.chatMenuOpen = false;
     state.planBuilderOpen = false;
     state.planDragId = null;
+    state.suggestionVisible = false;
     state.plan = sanitizePlan(stored.plan ?? loadPlan());
     state.generatedPlan = sanitizeGeneratedPlan(stored.generatedPlan ?? loadGeneratedPlan());
     setChats(stored.chats, stored.activeChatId);
@@ -4174,7 +4338,24 @@ function createNewChat() {
   const nextChat = createChat();
   state.chats = [nextChat, ...state.chats];
   state.activeChatId = nextChat.id;
+  state.chatMenuOpen = false;
   syncMessagesFromActiveChat();
+  disconnectRealtime();
+  schedulePersist();
+  renderAll();
+}
+
+function deleteChat(chatId) {
+  if (!state.chats.some((chat) => chat.id === chatId)) {
+    return;
+  }
+
+  const remainingChats = state.chats.filter((chat) => chat.id !== chatId);
+  const fallbackChats = remainingChats.length ? remainingChats : [createChat()];
+  const nextActiveChatId = chatId === state.activeChatId ? fallbackChats[0].id : state.activeChatId;
+
+  setChats(fallbackChats, nextActiveChatId);
+  state.chatMenuOpen = false;
   disconnectRealtime();
   schedulePersist();
   renderAll();
@@ -4185,11 +4366,11 @@ function switchChat(chatId) {
     return;
   }
   state.activeChatId = chatId;
+  state.chatMenuOpen = false;
   syncMessagesFromActiveChat();
   disconnectRealtime();
   schedulePersist();
-  renderThreads();
-  renderChat();
+  renderAll();
 }
 
 async function refreshContext() {
@@ -4219,17 +4400,64 @@ function setMenuOpen(isOpen) {
   renderSectionPanels();
 }
 
+function refreshVisibleMap() {
+  if (state.activeSection !== "map" || !state.maps.ready || !state.maps.map || !window.google?.maps) {
+    return;
+  }
+
+  window.setTimeout(() => {
+    if (!state.maps.map) {
+      return;
+    }
+
+    google.maps.event.trigger(state.maps.map, "resize");
+
+    if (state.selectedPlaceId) {
+      calculateRoute(state.selectedPlaceId).catch(() => {});
+      return;
+    }
+
+    if (state.location?.coords) {
+      renderMarkers();
+      return;
+    }
+
+    state.maps.map.setCenter(DEFAULT_COORDS);
+    state.maps.map.setZoom(13);
+  }, 140);
+}
+
 function switchSection(section) {
   if (!["assistant", "map", "nearby", "plan"].includes(section)) {
     return;
   }
   state.activeSection = section;
+  state.chatMenuOpen = false;
   renderSectionNav();
   renderSectionPanels();
+
+  if (section === "assistant") {
+    renderAssistant();
+    renderThreads();
+  }
+
+  if (section === "map") {
+    if (state.maps.ready) {
+      refreshVisibleMap();
+    } else if (isConfigured(GOOGLE_API_KEY)) {
+      loadGoogleMaps()
+        .then(() => {
+          renderMap();
+          refreshVisibleMap();
+        })
+        .catch((error) => console.error(error));
+    }
+  }
 }
 
 function openLanguageSelector() {
   state.menuOpen = false;
+  state.chatMenuOpen = false;
   state.languageGateOpen = true;
   renderAll();
   els.languageSelect.value = state.language;
@@ -4240,6 +4468,16 @@ async function requestInlineSuggestion() {
     return;
   }
 
+  state.suggestionVisible = true;
+  state.quickSuggestion = getSuggestionLoadingText();
+  renderHero();
+
+  if (!hasUsefulLiveContext()) {
+    await refreshContext();
+  }
+
+  state.quickSuggestion = buildQuickSuggestion();
+  renderHero();
   state.assistantMode = "text";
   state.realtime.voiceEnabled = false;
   switchSection("assistant");
@@ -4252,6 +4490,18 @@ async function requestInlineSuggestion() {
   await sendTextToAssistant(micro("suggestionPrompt"));
 }
 
+function acceptInlineSuggestion() {
+  addSuggestedPlacesToPlan(3);
+  state.suggestionVisible = false;
+  switchSection("plan");
+  renderAll();
+}
+
+function rejectInlineSuggestion() {
+  state.suggestionVisible = false;
+  renderHero();
+}
+
 function openPlanBuilder() {
   if (!state.plan.length) {
     return;
@@ -4259,6 +4509,7 @@ function openPlanBuilder() {
   els.planNameInput.value = state.generatedPlan?.name || "";
   els.planDateInput.value = state.generatedPlan?.date || getTodayIso();
   els.planStartTimeInput.value = state.generatedPlan?.startTime || "10:00";
+  els.planTravelModeInput.value = state.generatedPlan?.travelModeKey || state.travelMode;
   state.planBuilderOpen = true;
   renderPlanBuilder();
 }
@@ -4269,10 +4520,13 @@ function closePlanBuilder() {
 }
 
 async function submitPlanBuilder() {
+  const selectedTravelMode = els.planTravelModeInput.value || state.travelMode;
+  state.travelMode = selectedTravelMode;
   const result = await buildTravelerPlan({
     name: els.planNameInput.value.trim(),
     date: els.planDateInput.value,
     startTime: els.planStartTimeInput.value,
+    travelMode: selectedTravelMode,
   });
 
   if (result?.error) {
@@ -4283,7 +4537,7 @@ async function submitPlanBuilder() {
 
   closePlanBuilder();
   switchSection("plan");
-  renderPlan();
+  renderAll();
 }
 
 function startAutoContextRefresh() {
@@ -4309,6 +4563,11 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (event) => {
+    if (state.chatMenuOpen && !event.target.closest("#chatMenu")) {
+      state.chatMenuOpen = false;
+      renderAssistant();
+    }
+
     const sectionButton = event.target.closest("[data-section-switch]");
     if (sectionButton) {
       switchSection(sectionButton.dataset.sectionSwitch);
@@ -4328,6 +4587,12 @@ function bindEvents() {
     const chatButton = event.target.closest("[data-chat-id]");
     if (chatButton) {
       switchChat(chatButton.dataset.chatId);
+      return;
+    }
+
+    const deleteChatButton = event.target.closest("[data-delete-chat]");
+    if (deleteChatButton) {
+      deleteChat(deleteChatButton.dataset.deleteChat);
       return;
     }
 
@@ -4448,8 +4713,23 @@ function bindEvents() {
   els.authGoogleBtn.addEventListener("click", () => handleGoogleAccess().catch((error) => console.error(error)));
   els.authLogoutBtn.addEventListener("click", () => handleLogout().catch((error) => console.error(error)));
   els.suggestionBtn.addEventListener("click", () => requestInlineSuggestion().catch((error) => console.error(error)));
+  els.acceptSuggestionBtn.addEventListener("click", acceptInlineSuggestion);
+  els.rejectSuggestionBtn.addEventListener("click", rejectInlineSuggestion);
   els.locateBtn.addEventListener("click", () => refreshContext().catch((error) => console.error(error)));
   els.refreshBtn.addEventListener("click", () => refreshContext().catch((error) => console.error(error)));
+  els.chatMenuBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (!state.user) {
+      return;
+    }
+    state.chatMenuOpen = !state.chatMenuOpen;
+    renderAssistant();
+    renderThreads();
+  });
+  els.chatMenuNewBtn.addEventListener("click", (event) => {
+    event.stopPropagation();
+    createNewChat();
+  });
   els.connectBtn.addEventListener("click", () => connectRealtime().catch((error) => console.error(error)));
   els.disconnectBtn.addEventListener("click", disconnectRealtime);
   els.contextBtn.addEventListener("click", () => refreshContext().catch((error) => console.error(error)));
@@ -4462,7 +4742,6 @@ function bindEvents() {
     }
     connectRealtime().catch((error) => console.error(error));
   });
-  els.newChatBtn.addEventListener("click", createNewChat);
   els.openPlanBuilderBtn.addEventListener("click", openPlanBuilder);
   els.planBuilderCloseBtn.addEventListener("click", closePlanBuilder);
   els.planBuilderCancelBtn.addEventListener("click", closePlanBuilder);
