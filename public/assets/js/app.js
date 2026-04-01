@@ -133,9 +133,19 @@ function buildArScannerUrl(pavilion) {
   params.set("name", pavilion.name);
   params.set("targetSrc", pavilion.scannerTargetSrc);
   params.set("modelSrc", pavilion.scannerModelSrc);
+  params.set("scale", String(pavilion.scannerScale ?? 2));
+  params.set("rotationX", String(pavilion.scannerRotationX ?? 0));
 
   if (pavilion.mapUrl) {
     params.set("mapUrl", pavilion.mapUrl);
+  }
+
+  if (pavilion.brandImageSrc) {
+    params.set("brandImage", pavilion.brandImageSrc);
+  }
+
+  if (pavilion.audioEnabled === false) {
+    params.set("audio", "0");
   }
 
   return `./ar-scanner.html?${params.toString()}`;
@@ -147,6 +157,7 @@ function buildModelViewerUrl(pavilion) {
   params.set("pavilionId", pavilion.id);
   params.set("name", pavilion.name);
   params.set("modelSrc", pavilion.viewerModelSrc);
+  params.set("scale", pavilion.viewerScale || "2 2 2");
 
   if (pavilion.viewerIosSrc) {
     params.set("iosSrc", pavilion.viewerIosSrc);
@@ -154,6 +165,14 @@ function buildModelViewerUrl(pavilion) {
 
   if (pavilion.mapUrl) {
     params.set("mapUrl", pavilion.mapUrl);
+  }
+
+  if (pavilion.brandImageSrc) {
+    params.set("brandImage", pavilion.brandImageSrc);
+  }
+
+  if (pavilion.audioEnabled === false) {
+    params.set("audio", "0");
   }
 
   return `./ar-viewer.html?${params.toString()}`;

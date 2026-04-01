@@ -270,8 +270,12 @@
       const TARGETS_URL = params.get("targetSrc") || "./assets/ar/targets/targets.mind";
       const MODEL_URL = params.get("modelSrc") || "./assets/ar/models/modelo.glb";
       const MAP_URL = params.get("mapUrl") || "";
-      const IMAGE_URL = "./assets/ar/images/mude.png";
+      const BRAND_IMAGE_URL = params.get("brandImage") || "./assets/ar/images/mude.png";
       const AUDIO_URL = "./assets/ar/audio/dino.mp3";
+      const MODEL_SCALE = Number(params.get("scale") || "2");
+      const MODEL_ROTATION_X_DEG = Number(params.get("rotationX") || "0");
+      const AUDIO_ENABLED = params.get("audio") !== "0";
+      const IS_HORIZONTAL_TARGET = Math.abs(MODEL_ROTATION_X_DEG) > 0.001;
 
       document.title = `Escaner AR ${pavilionName}`;
 
@@ -286,12 +290,14 @@
       const startExperienceBtn = document.querySelector("#startExperienceBtn");
 
       const clock = new THREE.Clock();
-      const dinoAudio = new Audio(AUDIO_URL);
-      dinoAudio.loop = true;
-      dinoAudio.preload = "auto";
-      dinoAudio.muted = true;
-      dinoAudio.playsInline = true;
-      dinoAudio.load();
+      const experienceAudio = AUDIO_ENABLED ? new Audio(AUDIO_URL) : null;
+      if (experienceAudio) {
+        experienceAudio.loop = true;
+        experienceAudio.preload = "auto";
+        experienceAudio.muted = true;
+        experienceAudio.playsInline = true;
+        experienceAudio.load();
+      }
 
       let mindarThree;
       let renderer;
@@ -328,20 +334,25 @@
       }
 
       async function primeAudio() {
+        if (!experienceAudio) {
+          audioPrimed = true;
+          return true;
+        }
+
         if (audioPrimed) {
           return true;
         }
 
         try {
-          await dinoAudio.play();
-          dinoAudio.pause();
-          dinoAudio.currentTime = 0;
-          dinoAudio.muted = false;
+          await experienceAudio.play();
+          experienceAudio.pause();
+          experienceAudio.currentTime = 0;
+          experienceAudio.muted = false;
           audioPrimed = true;
           return true;
         } catch (error) {
           reportAudioIssue("No se pudo preparar el audio", error);
-          dinoAudio.muted = false;
+          experienceAudio.muted = false;
           throw error;
         }
       }
@@ -350,10 +361,14 @@
         primeAudio().catch(() => {});
       }
 
-      function playDinoAudio() {
-        dinoAudio.muted = false;
-        dinoAudio.currentTime = 0;
-        dinoAudio.play().catch((error) => {
+      function playExperienceAudio() {
+        if (!experienceAudio) {
+          return;
+        }
+
+        experienceAudio.muted = false;
+        experienceAudio.currentTime = 0;
+        experienceAudio.play().catch((error) => {
           reportAudioIssue(
             "El navegador bloqueo la reproduccion al detectar el target",
             error
@@ -361,8 +376,17 @@
         });
       }
 
+      function stopExperienceAudio() {
+        if (!experienceAudio) {
+          return;
+        }
+
+        experienceAudio.pause();
+        experienceAudio.currentTime = 0;
+      }
+
       async function addFloatingImage(anchor, modelRoot) {
-        const texture = await new THREE.TextureLoader().loadAsync(IMAGE_URL);
+        const texture = await new THREE.TextureLoader().loadAsync(BRAND_IMAGE_URL);
         const sprite = new THREE.Sprite(
           new THREE.SpriteMaterial({
             map: texture,
@@ -377,11 +401,23 @@
         const center = box.getCenter(new THREE.Vector3());
         const aspect =
           (texture.image?.width || 1) / (texture.image?.height || 1);
-        const height = (size.y || 1) * 0.22;
+        const verticalSize = IS_HORIZONTAL_TARGET ? size.z || 1 : size.y || 1;
+        const height = verticalSize * (IS_HORIZONTAL_TARGET ? 0.26 : 0.22);
 
         sprite.scale.set(height * aspect, height, 1);
-        sprite.center.set(0.5, 1);
-        sprite.position.set(center.x, box.min.y - size.y * 0.06, center.z + 0.01);
+
+        if (IS_HORIZONTAL_TARGET) {
+          sprite.center.set(0.5, 0);
+          sprite.position.set(
+            center.x,
+            box.max.y + (size.y || 1) * 0.18,
+            box.max.z + (size.z || 1) * 0.08
+          );
+        } else {
+          sprite.center.set(0.5, 1);
+          sprite.position.set(center.x, box.min.y - size.y * 0.06, center.z + 0.01);
+        }
+
         sprite.renderOrder = 999;
         anchor.group.add(sprite);
       }
@@ -391,18 +427,27 @@
         const model = gltf.scene;
         const box = new THREE.Box3().setFromObject(model);
         const size = box.getSize(new THREE.Vector3());
-        const scaleFactor = 2 / (Math.max(size.x, size.y, size.z) || 1);
+        const scaleFactor = MODEL_SCALE / (Math.max(size.x, size.y, size.z) || 1);
 
         model.scale.multiplyScalar(scaleFactor);
+        model.rotation.x = THREE.MathUtils.degToRad(MODEL_ROTATION_X_DEG);
         model.updateMatrixWorld(true);
 
         const scaledBox = new THREE.Box3().setFromObject(model);
         const center = scaledBox.getCenter(new THREE.Vector3());
+        const scaledSize = scaledBox.getSize(new THREE.Vector3());
 
         model.position.x -= center.x;
-        model.position.z -= center.z;
-        model.position.y -= center.y + size.y * 0.08;
-        model.position.z += 0.03;
+
+        if (IS_HORIZONTAL_TARGET) {
+          model.position.y -= center.y;
+          model.position.z -= scaledBox.min.z;
+          model.position.z += (scaledSize.z || 1) * 0.04;
+        } else {
+          model.position.z -= center.z;
+          model.position.y -= center.y + scaledSize.y * 0.08;
+          model.position.z += 0.03;
+        }
 
         const root = new THREE.Group();
         root.rotation.set(0, 0, 0);
@@ -442,14 +487,13 @@
 
         anchor.onTargetFound = () => {
           setScanningState(true);
-          playDinoAudio();
+          playExperienceAudio();
         };
 
         anchor.onTargetLost = () => {
           setScanningState(false);
           setMessage(`Apunta nuevamente al target de "${pavilionName}".`);
-          dinoAudio.pause();
-          dinoAudio.currentTime = 0;
+          stopExperienceAudio();
         };
 
         await buildModel(anchor);
@@ -472,8 +516,7 @@
 
         mindarThree.stop();
         renderer?.setAnimationLoop(null);
-        dinoAudio.pause();
-        dinoAudio.currentTime = 0;
+        stopExperienceAudio();
       }
 
       startGateCopy.textContent = `Prepara el target del pabellón "${pavilionName}" para comenzar la experiencia.`;

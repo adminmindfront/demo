@@ -209,7 +209,7 @@
     </button>
 
     <div class="viewer-brand">
-      <img src="./assets/ar/images/mude.png" alt="MUDE" />
+      <img id="brandImage" src="./assets/ar/images/mude.png" alt="MUDE" />
     </div>
 
     <div id="loadingOverlay" class="loading-overlay">
@@ -247,24 +247,35 @@
       const MODEL_URL = params.get("modelSrc") || "./assets/ar/models/modelo.glb";
       const IOS_MODEL_URL = params.get("iosSrc") || "./assets/ar/models/modelo2.usdz";
       const MAP_URL = params.get("mapUrl") || "";
+      const BRAND_IMAGE_URL = params.get("brandImage") || "./assets/ar/images/mude.png";
+      const VIEWER_SCALE = params.get("scale") || "2 2 2";
+      const AUDIO_ENABLED = params.get("audio") !== "0";
 
       document.title = `Visor 3D ${pavilionName}`;
 
       const messageText = document.querySelector("#messageText");
       const viewerTitle = document.querySelector("#viewerTitle");
       const viewer = document.querySelector("#viewer");
+      const brandImage = document.querySelector("#brandImage");
       const arBtn = document.querySelector("#arBtn");
       const mapBtn = document.querySelector("#mapBtn");
       const stampBtn = document.querySelector("#stampBtn");
       const closeBtn = document.querySelector("#closeBtn");
       const loadingOverlay = document.querySelector("#loadingOverlay");
-      const dinoAudio = new Audio("./assets/ar/audio/dino.mp3");
+      const experienceAudio = AUDIO_ENABLED
+        ? new Audio("./assets/ar/audio/dino.mp3")
+        : null;
 
-      dinoAudio.loop = true;
-      dinoAudio.preload = "auto";
+      if (experienceAudio) {
+        experienceAudio.loop = true;
+        experienceAudio.preload = "auto";
+      }
 
       viewerTitle.textContent = pavilionName;
+      brandImage.src = BRAND_IMAGE_URL;
+      brandImage.alt = pavilionName;
       viewer.setAttribute("src", MODEL_URL);
+      viewer.setAttribute("scale", VIEWER_SCALE);
 
       if (IOS_MODEL_URL) {
         viewer.setAttribute("ios-src", IOS_MODEL_URL);
@@ -284,7 +295,20 @@
       }
 
       function playAudioSafe() {
-        dinoAudio.play().catch(() => {});
+        if (!experienceAudio) {
+          return;
+        }
+
+        experienceAudio.play().catch(() => {});
+      }
+
+      function stopAudio() {
+        if (!experienceAudio) {
+          return;
+        }
+
+        experienceAudio.pause();
+        experienceAudio.currentTime = 0;
       }
 
       viewer.addEventListener("load", hideLoader);
@@ -303,8 +327,7 @@
           setMessage("Explora el modelo 3D o vuelve a abrir AR.");
         }
 
-        dinoAudio.pause();
-        dinoAudio.currentTime = 0;
+        stopAudio();
       });
 
       arBtn.addEventListener("click", playAudioSafe);
@@ -334,7 +357,7 @@
 
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
-          dinoAudio.pause();
+          stopAudio();
         }
       });
     </script>

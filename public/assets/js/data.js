@@ -18,8 +18,13 @@ export const PAVILIONS = [
     icon: "\uD83C\uDF47",
     scannerTargetSrc: "./assets/ar/targets/targetsm.mind",
     scannerModelSrc: "./assets/ar/models/modelom.glb",
+    scannerScale: 1.1,
+    scannerRotationX: 90,
     viewerModelSrc: "./assets/ar/models/modelom.glb",
     viewerIosSrc: "./assets/ar/models/modelom.usdz",
+    viewerScale: "1.2 1.2 1.2",
+    brandImageSrc: "./assets/ar/images/casamadero.png",
+    audioEnabled: false,
     mapUrl: "https://maps.app.goo.gl/Ri9Jo9KK3viNGTTZ8",
   },
   {
