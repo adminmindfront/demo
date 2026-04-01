@@ -638,6 +638,60 @@ button {
   gap: 1rem;
 }
 
+.accordion-panel {
+  display: grid;
+  gap: 1rem;
+}
+
+.accordion-toggle {
+  width: 100%;
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  padding: 0;
+  color: var(--white);
+  background: transparent;
+}
+
+.accordion-toggle > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.accordion-toggle strong {
+  display: block;
+  font-family: "Sora", sans-serif;
+  font-size: 1.02rem;
+}
+
+.accordion-toggle span {
+  color: rgba(255, 255, 255, 0.66);
+  font-size: 0.88rem;
+}
+
+.accordion-toggle__icon {
+  width: 2rem;
+  height: 2rem;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--sky-300);
+  font-size: 1.15rem;
+}
+
+.accordion-body {
+  display: grid;
+  gap: 1rem;
+}
+
+.accordion-panel.is-collapsed .accordion-body {
+  display: none;
+}
+
 .panel,
 .assistant {
   padding: 1rem;
@@ -863,7 +917,8 @@ button {
 
 .assistant {
   display: grid;
-  grid-template-rows: auto auto auto minmax(240px, 1fr) auto;
+  gap: 1rem;
+  align-content: start;
   min-height: 760px;
 }
 
@@ -916,6 +971,59 @@ button {
   color: rgba(255, 255, 255, 0.84);
   line-height: 1.6;
   font-size: 0.9rem;
+}
+
+.assistant-mode {
+  display: inline-flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.assistant-mode .tiny-button.is-active {
+  color: #07111f;
+  background: linear-gradient(135deg, var(--sky-300), var(--mint-300));
+  border-color: transparent;
+}
+
+.assistant-voice-pane,
+.assistant-text-pane {
+  display: grid;
+  gap: 1rem;
+  min-height: 0;
+}
+
+.assistant-pane--hidden {
+  display: none;
+}
+
+.voice-visual {
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top, rgba(71, 168, 255, 0.18), transparent 30%),
+    rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  min-height: 280px;
+}
+
+.voice-copy {
+  padding: 0.95rem 1rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.voice-copy strong {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.voice-copy p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  line-height: 1.6;
 }
 
 .thread-panel {
@@ -979,6 +1087,7 @@ button {
   padding-right: 0.35rem;
   display: grid;
   gap: 0.8rem;
+  max-height: min(42vh, 420px);
 }
 
 .chat-log::-webkit-scrollbar {
@@ -1157,7 +1266,6 @@ button {
     width: calc(100% - 0.8rem);
   }
 
-  .language-grid,
   .recommendation-grid {
     grid-template-columns: 1fr;
   }
@@ -1181,6 +1289,7 @@ button {
   .helper-row,
   .assistant__controls,
   .assistant__toggles,
+  .assistant-mode,
   .mode-group,
   .card-actions,
   .auth-toggle {

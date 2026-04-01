@@ -14,6 +14,10 @@
       rel="icon"
       href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2308161f'/%3E%3Ccircle cx='32' cy='32' r='18' fill='%2347a8ff'/%3E%3Cpath d='M32 18l4.8 9.7 10.7 1.6-7.7 7.5 1.8 10.6L32 42.2l-9.6 5 1.8-10.6-7.7-7.5 10.7-1.6z' fill='%23f6eddc'/%3E%3C/svg%3E"
     />
+    <script
+      src="https://unpkg.com/@lottiefiles/dotlottie-wc@0.9.8/dist/dotlottie-wc.js"
+      type="module"
+    ></script>
     <link rel="stylesheet" href="./assets/css/visita.css" />
   </head>
   <body>
@@ -25,7 +29,7 @@
             <h1 id="languageTitle"></h1>
             <p id="languageHint"></p>
           </div>
-          <button class="language-card__close" id="languageCloseBtn" type="button" aria-label="Close">×</button>
+          <button class="language-card__close" id="languageCloseBtn" type="button" aria-label="Close">&times;</button>
         </div>
         <div class="language-current" id="languageCurrent"></div>
         <div class="language-picker">
@@ -135,57 +139,95 @@
 
       <main class="layout">
         <div class="main-column">
-          <section class="summary-grid">
-            <article class="panel summary-card">
-              <div class="summary-card__label" id="locationCardLabel"></div>
-              <div class="summary-card__value" id="locationCardValue"></div>
-              <div class="summary-card__hint" id="locationCardHint"></div>
-            </article>
+          <section class="panel accordion-panel" id="overviewAccordion">
+            <button class="accordion-toggle" type="button" data-accordion-toggle="overview">
+              <div>
+                <strong id="overviewAccordionTitle"></strong>
+                <span id="overviewAccordionHint"></span>
+              </div>
+              <span class="accordion-toggle__icon" id="overviewAccordionIcon">+</span>
+            </button>
+            <div class="accordion-body" id="overviewAccordionBody">
+              <section class="summary-grid">
+                <article class="panel summary-card">
+                  <div class="summary-card__label" id="locationCardLabel"></div>
+                  <div class="summary-card__value" id="locationCardValue"></div>
+                  <div class="summary-card__hint" id="locationCardHint"></div>
+                </article>
 
-            <article class="panel summary-card">
-              <div class="summary-card__label" id="weatherCardLabel"></div>
-              <div class="summary-card__value" id="weatherCardValue"></div>
-              <div class="summary-card__hint" id="weatherCardHint"></div>
-            </article>
+                <article class="panel summary-card">
+                  <div class="summary-card__label" id="weatherCardLabel"></div>
+                  <div class="summary-card__value" id="weatherCardValue"></div>
+                  <div class="summary-card__hint" id="weatherCardHint"></div>
+                </article>
 
-            <article class="panel summary-card">
-              <div class="summary-card__label" id="timingCardLabel"></div>
-              <div class="summary-card__value" id="timingCardValue"></div>
-              <div class="summary-card__hint" id="timingCardHint"></div>
-            </article>
+                <article class="panel summary-card">
+                  <div class="summary-card__label" id="timingCardLabel"></div>
+                  <div class="summary-card__value" id="timingCardValue"></div>
+                  <div class="summary-card__hint" id="timingCardHint"></div>
+                </article>
+              </section>
+            </div>
           </section>
 
-          <section class="panel">
-            <div class="panel__head">
+          <section class="panel accordion-panel" id="mapAccordion">
+            <button class="accordion-toggle" type="button" data-accordion-toggle="map">
               <div>
-                <h2 class="panel__title" id="mapTitle"></h2>
-                <p class="panel__subtitle" id="mapSubtitle"></p>
+                <strong id="mapAccordionTitle"></strong>
+                <span id="mapAccordionHint"></span>
               </div>
-              <div class="mode-group" id="travelModeGroup"></div>
-            </div>
-            <div class="map-wrap">
-              <div id="mapCanvas" class="map-empty"></div>
+              <span class="accordion-toggle__icon" id="mapAccordionIcon">+</span>
+            </button>
+            <div class="accordion-body" id="mapAccordionBody">
+              <div class="panel__head">
+                <div>
+                  <h2 class="panel__title" id="mapTitle"></h2>
+                  <p class="panel__subtitle" id="mapSubtitle"></p>
+                </div>
+                <div class="mode-group" id="travelModeGroup"></div>
+              </div>
+              <div class="map-wrap">
+                <div id="mapCanvas" class="map-empty"></div>
+              </div>
             </div>
           </section>
 
-          <section class="panel">
-            <div class="panel__head">
+          <section class="panel accordion-panel" id="nearbyAccordion">
+            <button class="accordion-toggle" type="button" data-accordion-toggle="nearby">
               <div>
-                <h2 class="panel__title" id="nearbyTitle"></h2>
-                <p class="panel__subtitle" id="nearbySubtitle"></p>
+                <strong id="nearbyAccordionTitle"></strong>
+                <span id="nearbyAccordionHint"></span>
               </div>
+              <span class="accordion-toggle__icon" id="nearbyAccordionIcon">+</span>
+            </button>
+            <div class="accordion-body" id="nearbyAccordionBody">
+              <div class="panel__head">
+                <div>
+                  <h2 class="panel__title" id="nearbyTitle"></h2>
+                  <p class="panel__subtitle" id="nearbySubtitle"></p>
+                </div>
+              </div>
+              <div class="recommendation-grid" id="nearbyGrid"></div>
             </div>
-            <div class="recommendation-grid" id="nearbyGrid"></div>
           </section>
 
-          <section class="panel">
-            <div class="panel__head">
+          <section class="panel accordion-panel" id="planAccordion">
+            <button class="accordion-toggle" type="button" data-accordion-toggle="plan">
               <div>
-                <h2 class="panel__title" id="planTitle"></h2>
-                <p class="panel__subtitle" id="planSubtitle"></p>
+                <strong id="planAccordionTitle"></strong>
+                <span id="planAccordionHint"></span>
               </div>
+              <span class="accordion-toggle__icon" id="planAccordionIcon">+</span>
+            </button>
+            <div class="accordion-body" id="planAccordionBody">
+              <div class="panel__head">
+                <div>
+                  <h2 class="panel__title" id="planTitle"></h2>
+                  <p class="panel__subtitle" id="planSubtitle"></p>
+                </div>
+              </div>
+              <div class="plan-grid" id="planGrid"></div>
             </div>
-            <div class="plan-grid" id="planGrid"></div>
           </section>
         </div>
 
@@ -223,27 +265,49 @@
             <div class="assistant__notice" id="assistantNotice"></div>
           </div>
 
-          <section class="thread-panel">
-            <div class="thread-panel__head">
-              <div>
-                <strong id="chatsHeading"></strong>
-                <p id="chatsHint"></p>
-              </div>
-              <button class="tiny-button" id="newChatBtn" type="button"></button>
+          <div class="assistant-mode" id="assistantModeTabs">
+            <button class="tiny-button" id="voiceModeBtn" type="button" data-assistant-mode="voice"></button>
+            <button class="tiny-button" id="textModeBtn" type="button" data-assistant-mode="text"></button>
+          </div>
+
+          <section class="assistant-voice-pane" id="assistantVoicePane">
+            <div class="voice-visual">
+              <dotlottie-wc
+                src="https://lottie.host/be7fe30e-a691-40a0-bdf9-5e175b47240a/yisXA4hHrg.lottie"
+                style="width: 300px; height: 300px"
+                autoplay
+                loop
+              ></dotlottie-wc>
             </div>
-            <div class="thread-list" id="threadList"></div>
+            <div class="voice-copy">
+              <strong id="voiceVisualizerTitle"></strong>
+              <p id="voiceVisualizerHint"></p>
+            </div>
           </section>
 
-          <div class="chat-quick" id="quickPrompts"></div>
-          <div class="chat-log" id="chatLog"></div>
+          <section class="assistant-text-pane" id="assistantTextPane">
+            <section class="thread-panel">
+              <div class="thread-panel__head">
+                <div>
+                  <strong id="chatsHeading"></strong>
+                  <p id="chatsHint"></p>
+                </div>
+                <button class="tiny-button" id="newChatBtn" type="button"></button>
+              </div>
+              <div class="thread-list" id="threadList"></div>
+            </section>
 
-          <form class="chat-form" id="chatForm">
-            <textarea id="chatInput"></textarea>
-            <div class="chat-form__actions">
-              <div class="helper-row" id="helperRow"></div>
-              <button class="action-button action-button--warm" type="submit" id="sendBtn"></button>
-            </div>
-          </form>
+            <div class="chat-quick" id="quickPrompts"></div>
+            <div class="chat-log" id="chatLog"></div>
+
+            <form class="chat-form" id="chatForm">
+              <textarea id="chatInput"></textarea>
+              <div class="chat-form__actions">
+                <div class="helper-row" id="helperRow"></div>
+                <button class="action-button action-button--warm" type="submit" id="sendBtn"></button>
+              </div>
+            </form>
+          </section>
         </aside>
       </main>
     </div>

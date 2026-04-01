@@ -347,6 +347,7 @@ const DEFAULT_SETTINGS = {
   travelMode: "WALKING",
   micEnabled: true,
   voiceEnabled: true,
+  assistantMode: "voice",
 };
 
 const state = {
@@ -373,6 +374,13 @@ const state = {
   authMessage: "",
   authError: "",
   isAuthSubmitting: false,
+  assistantMode: DEFAULT_SETTINGS.assistantMode,
+  accordions: {
+    overview: true,
+    map: false,
+    nearby: false,
+    plan: false,
+  },
   chats: [],
   activeChatId: null,
   memorySummary: DEFAULT_MEMORY_SUMMARY,
@@ -461,13 +469,29 @@ const els = {
   timingCardLabel: document.getElementById("timingCardLabel"),
   timingCardValue: document.getElementById("timingCardValue"),
   timingCardHint: document.getElementById("timingCardHint"),
+  overviewAccordion: document.getElementById("overviewAccordion"),
+  overviewAccordionTitle: document.getElementById("overviewAccordionTitle"),
+  overviewAccordionHint: document.getElementById("overviewAccordionHint"),
+  overviewAccordionIcon: document.getElementById("overviewAccordionIcon"),
+  mapAccordion: document.getElementById("mapAccordion"),
+  mapAccordionTitle: document.getElementById("mapAccordionTitle"),
+  mapAccordionHint: document.getElementById("mapAccordionHint"),
+  mapAccordionIcon: document.getElementById("mapAccordionIcon"),
   mapTitle: document.getElementById("mapTitle"),
   mapSubtitle: document.getElementById("mapSubtitle"),
   travelModeGroup: document.getElementById("travelModeGroup"),
   mapCanvas: document.getElementById("mapCanvas"),
+  nearbyAccordion: document.getElementById("nearbyAccordion"),
+  nearbyAccordionTitle: document.getElementById("nearbyAccordionTitle"),
+  nearbyAccordionHint: document.getElementById("nearbyAccordionHint"),
+  nearbyAccordionIcon: document.getElementById("nearbyAccordionIcon"),
   nearbyTitle: document.getElementById("nearbyTitle"),
   nearbySubtitle: document.getElementById("nearbySubtitle"),
   nearbyGrid: document.getElementById("nearbyGrid"),
+  planAccordion: document.getElementById("planAccordion"),
+  planAccordionTitle: document.getElementById("planAccordionTitle"),
+  planAccordionHint: document.getElementById("planAccordionHint"),
+  planAccordionIcon: document.getElementById("planAccordionIcon"),
   planTitle: document.getElementById("planTitle"),
   planSubtitle: document.getElementById("planSubtitle"),
   planGrid: document.getElementById("planGrid"),
@@ -482,6 +506,13 @@ const els = {
   connectionStatusText: document.getElementById("connectionStatusText"),
   locationStatusText: document.getElementById("locationStatusText"),
   assistantNotice: document.getElementById("assistantNotice"),
+  assistantModeTabs: document.getElementById("assistantModeTabs"),
+  voiceModeBtn: document.getElementById("voiceModeBtn"),
+  textModeBtn: document.getElementById("textModeBtn"),
+  assistantVoicePane: document.getElementById("assistantVoicePane"),
+  assistantTextPane: document.getElementById("assistantTextPane"),
+  voiceVisualizerTitle: document.getElementById("voiceVisualizerTitle"),
+  voiceVisualizerHint: document.getElementById("voiceVisualizerHint"),
   chatsHeading: document.getElementById("chatsHeading"),
   chatsHint: document.getElementById("chatsHint"),
   newChatBtn: document.getElementById("newChatBtn"),
@@ -821,6 +852,7 @@ function getTravelerPayload() {
       travelMode: state.travelMode,
       micEnabled: state.realtime.micEnabled,
       voiceEnabled: state.realtime.voiceEnabled,
+      assistantMode: state.assistantMode,
     },
     plan: state.plan,
     chats: state.chats,
@@ -855,19 +887,130 @@ function findPlace(placeId) {
     || state.plan.find((place) => place.id === placeId);
 }
 
-function buildWeatherMood() {
+function toRadians(value) {
+  return (value * Math.PI) / 180;
+}
+
+function computeDistanceMeters(origin, destination) {
+  if (!origin || !destination) {
+    return null;
+  }
+
+  const earthRadius = 6371000;
+  const dLat = toRadians(destination.lat - origin.lat);
+  const dLng = toRadians(destination.lng - origin.lng);
+  const a =
+    Math.sin(dLat / 2) ** 2
+    + Math.cos(toRadians(origin.lat))
+      * Math.cos(toRadians(destination.lat))
+      * Math.sin(dLng / 2) ** 2;
+
+  return earthRadius * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
+
+function getWeatherStrategy() {
   const temperature = state.weather?.current_weather?.temperature;
   const code = state.weather?.current_weather?.weathercode;
+
   if (Number.isFinite(temperature) && temperature >= 32) {
-    return t("weatherMoodHot");
+    return "hot";
   }
   if (["rain", "drizzle", "showers", "storm"].includes(WEATHER_CODES[code])) {
+    return "rainy";
+  }
+  return "pleasant";
+}
+
+function buildWeatherMood() {
+  if (getWeatherStrategy() === "hot") {
+    return t("weatherMoodHot");
+  }
+  if (getWeatherStrategy() === "rainy") {
     return t("weatherMoodRain");
   }
   return t("weatherMoodSunny");
 }
 
-function buildQuickSuggestion() {
+function isIndoorPlace(place) {
+  return ["museum", "restaurant", "cafe"].includes(place?.category);
+}
+
+function estimateVisitMinutes(place) {
+  switch (place?.category) {
+    case "museum":
+      return 95;
+    case "restaurant":
+      return 80;
+    case "cafe":
+      return 45;
+    case "tourist_attraction":
+      return 75;
+    default:
+      return 60;
+  }
+}
+
+function buildPlaceReason(place) {
+  const reasons = [];
+  const strategy = getWeatherStrategy();
+
+  if (strategy === "rainy" && isIndoorPlace(place)) {
+    reasons.push(t("weatherMoodRain"));
+  } else if (strategy === "hot" && isIndoorPlace(place)) {
+    reasons.push(t("weatherMoodHot"));
+  } else if (strategy === "pleasant" && place.category === "tourist_attraction") {
+    reasons.push(t("weatherMoodSunny"));
+  }
+
+  if (place.openNow === true) {
+    reasons.push(t("openNow"));
+  }
+  if (place.distanceMeters) {
+    reasons.push(formatDistance(place.distanceMeters));
+  }
+
+  return reasons.filter(Boolean).join(" · ");
+}
+
+function scorePlaceForMoment(place) {
+  const strategy = getWeatherStrategy();
+  let score = 0;
+
+  if (strategy === "rainy") {
+    score += isIndoorPlace(place) ? 6 : -3;
+  } else if (strategy === "hot") {
+    score += isIndoorPlace(place) ? 5 : -2;
+  } else {
+    score += place.category === "tourist_attraction" ? 4 : 1;
+  }
+
+  if (place.openNow === true) {
+    score += 3;
+  }
+  if (place.openNow === false) {
+    score -= 5;
+  }
+  if (Number.isFinite(place.rating)) {
+    score += place.rating;
+  }
+  if (Number.isFinite(place.distanceMeters)) {
+    score += Math.max(0, 3 - place.distanceMeters / 1000);
+  }
+  if (place.category === "restaurant" || place.category === "cafe") {
+    score += 0.8;
+  }
+
+  return score;
+}
+
+function getRecommendedPlaces(limit = 3, source = state.nearbyPlaces) {
+  return [...source]
+    .filter((place) => place?.location)
+    .sort((a, b) => scorePlaceForMoment(b) - scorePlaceForMoment(a))
+    .slice(0, limit);
+}
+
+function buildQuickSuggestionLegacy() {
   const attraction = state.nearbyPlaces.find((place) => place.category === "tourist_attraction")
     || state.nearbyPlaces[0];
   const food = state.nearbyPlaces.find((place) => place.category === "restaurant")
@@ -911,6 +1054,61 @@ function buildQuickSuggestion() {
       return `Estás cerca de ${head}. ${buildWeatherMood()} ${
         attraction ? `Podrías empezar por ${attraction.name}` : "Podrías empezar cerca de aquí"
       }${food ? ` y luego pasar a ${food.name}.` : "."}`;
+  }
+}
+
+function buildQuickSuggestion() {
+  const [first, second] = getRecommendedPlaces(2);
+  const head = state.location?.displayName || DEFAULT_COORDS.name;
+  const weather = state.weather
+    ? `${weatherLabel(state.weather.current_weather.weathercode)} ${formatTemperature(
+        state.weather.current_weather.temperature
+      )}`
+    : t("weatherLoading");
+  const firstStop = first
+    ? `${first.name}${first.distanceMeters ? ` (${formatDistance(first.distanceMeters)})` : ""}`
+    : null;
+  const secondStop = second
+    ? `${second.name}${second.distanceMeters ? ` (${formatDistance(second.distanceMeters)})` : ""}`
+    : null;
+
+  switch (state.language) {
+    case "en":
+      return `You are near ${head}. Weather now: ${weather}. ${buildWeatherMood()} ${
+        firstStop ? `A strong first stop is ${firstStop}.` : "Start with something nearby."
+      }${secondStop ? ` Then continue with ${secondStop}.` : ""}`;
+    case "fr":
+      return `Vous etes pres de ${head}. Meteo actuelle: ${weather}. ${buildWeatherMood()} ${
+        firstStop ? `Un bon premier arret est ${firstStop}.` : "Commencez par quelque chose de proche."
+      }${secondStop ? ` Puis continuez avec ${secondStop}.` : ""}`;
+    case "pt":
+      return `Voce esta perto de ${head}. Clima agora: ${weather}. ${buildWeatherMood()} ${
+        firstStop ? `Uma boa primeira parada e ${firstStop}.` : "Comece por algo proximo."
+      }${secondStop ? ` Depois siga para ${secondStop}.` : ""}`;
+    case "ja":
+      return `${head} の近くにいます。現在の天気は ${weather} です。${buildWeatherMood()} ${
+        firstStop ? `まずは ${firstStop} から始めるのがよさそうです。` : "まずは近くから始めましょう。"
+      }${secondStop ? ` その次は ${secondStop} が合いそうです。` : ""}`;
+    case "ko":
+      return `${head} 근처에 있습니다. 지금 날씨는 ${weather} 입니다. ${buildWeatherMood()} ${
+        firstStop ? `첫 목적지는 ${firstStop} 이 좋겠습니다.` : "가까운 곳부터 시작해 보세요."
+      }${secondStop ? ` 다음으로는 ${secondStop} 이 잘 맞습니다.` : ""}`;
+    case "ar":
+      return `أنت الآن بالقرب من ${head}. الطقس الحالي: ${weather}. ${buildWeatherMood()} ${
+        firstStop ? `بداية جيدة ستكون ${firstStop}.` : "ابدأ من مكان قريب."
+      }${secondStop ? ` ثم انتقل إلى ${secondStop}.` : ""}`;
+    case "zh":
+      return `你现在位于 ${head} 附近。当前天气：${weather}。${buildWeatherMood()} ${
+        firstStop ? `可以先去 ${firstStop}。` : "可以先从附近开始。"
+      }${secondStop ? ` 然后再去 ${secondStop}。` : ""}`;
+    case "de":
+      return `Du bist in der Naehe von ${head}. Aktuelles Wetter: ${weather}. ${buildWeatherMood()} ${
+        firstStop ? `Ein guter erster Halt ist ${firstStop}.` : "Starte mit etwas in der Naehe."
+      }${secondStop ? ` Danach passt ${secondStop}.` : ""}`;
+    default:
+      return `Estas cerca de ${head}. Clima actual: ${weather}. ${buildWeatherMood()} ${
+        firstStop ? `Una buena primera parada es ${firstStop}.` : "Podrias empezar cerca de aqui."
+      }${secondStop ? ` Despues sigue con ${secondStop}.` : ""}`;
   }
 }
 
@@ -1044,6 +1242,150 @@ function getEmailDividerLabel() {
     de: "oder E-Mail verwenden",
   };
   return labels[state.language] || labels.en;
+}
+
+function getAssistantModeLabel(mode) {
+  const labels = {
+    voice: {
+      es: "Voz",
+      en: "Voice",
+      fr: "Voix",
+      pt: "Voz",
+      ja: "音声",
+      ko: "음성",
+      ar: "صوت",
+      zh: "语音",
+      de: "Stimme",
+    },
+    text: {
+      es: "Texto",
+      en: "Text",
+      fr: "Texte",
+      pt: "Texto",
+      ja: "テキスト",
+      ko: "텍스트",
+      ar: "نص",
+      zh: "文字",
+      de: "Text",
+    },
+  };
+
+  return labels[mode]?.[state.language] || labels[mode]?.en || mode;
+}
+
+function formatNearbyCount(count) {
+  const labels = {
+    es: count === 1 ? "lugar listo" : "lugares listos",
+    en: count === 1 ? "place ready" : "places ready",
+    fr: count === 1 ? "lieu pret" : "lieux prets",
+    pt: count === 1 ? "lugar pronto" : "lugares prontos",
+    ja: count === 1 ? "件の候補" : "件の候補",
+    ko: count === 1 ? "개 추천" : "개 추천",
+    ar: count === 1 ? "مكان جاهز" : "أماكن جاهزة",
+    zh: count === 1 ? "个地点已就绪" : "个地点已就绪",
+    de: count === 1 ? "Ort bereit" : "Orte bereit",
+  };
+
+  return `${count} ${labels[state.language] || labels.en}`;
+}
+
+function formatDistance(meters) {
+  if (!Number.isFinite(meters) || meters <= 0) {
+    return "";
+  }
+
+  if (meters < 1000) {
+    return `${Math.round(meters)} m`;
+  }
+
+  const kilometers = meters / 1000;
+  return `${kilometers >= 10 ? Math.round(kilometers) : kilometers.toFixed(1)} km`;
+}
+
+function getVoiceVisualizerCopy() {
+  if (!state.user) {
+    return {
+      title: t("assistantTitle"),
+      hint: t("loginRequired"),
+    };
+  }
+
+  if (!state.realtime.connected && !state.realtime.connecting) {
+    return {
+      title: t("assistantTitle"),
+      hint: t("assistantSubtitle"),
+    };
+  }
+
+  if (state.realtime.connecting) {
+    return {
+      title: t("connect"),
+      hint: t("refreshContext"),
+    };
+  }
+
+  if (!state.realtime.micEnabled) {
+    return {
+      title: t("speechMuted"),
+      hint: getMicFallbackMessage(),
+    };
+  }
+
+  return {
+    title: t("speechReady"),
+    hint: `${state.location?.displayName || DEFAULT_COORDS.name} · ${buildWeatherMood()}`,
+  };
+}
+
+function renderAccordionPanels() {
+  const selectedPlace = findPlace(state.selectedPlaceId);
+  const panels = {
+    overview: {
+      element: els.overviewAccordion,
+      titleElement: els.overviewAccordionTitle,
+      hintElement: els.overviewAccordionHint,
+      iconElement: els.overviewAccordionIcon,
+      title: `${t("locationCardLabel")} · ${t("weatherCardLabel")} · ${t("timingCardLabel")}`,
+      hint: state.location?.displayName || t("locationLoading"),
+    },
+    map: {
+      element: els.mapAccordion,
+      titleElement: els.mapAccordionTitle,
+      hintElement: els.mapAccordionHint,
+      iconElement: els.mapAccordionIcon,
+      title: t("mapTitle"),
+      hint: selectedPlace?.name || t("mapSubtitle"),
+    },
+    nearby: {
+      element: els.nearbyAccordion,
+      titleElement: els.nearbyAccordionTitle,
+      hintElement: els.nearbyAccordionHint,
+      iconElement: els.nearbyAccordionIcon,
+      title: t("nearbyTitle"),
+      hint: state.nearbyPlaces.length ? formatNearbyCount(state.nearbyPlaces.length) : t("emptyNearby"),
+    },
+    plan: {
+      element: els.planAccordion,
+      titleElement: els.planAccordionTitle,
+      hintElement: els.planAccordionHint,
+      iconElement: els.planAccordionIcon,
+      title: t("planTitle"),
+      hint: state.plan.length ? `${state.plan.length} ${t("planCount")}` : t("emptyPlan"),
+    },
+  };
+
+  Object.entries(panels).forEach(([key, panel]) => {
+    const isOpen = Boolean(state.accordions[key]);
+    panel.titleElement.textContent = panel.title;
+    panel.hintElement.textContent = panel.hint;
+    panel.iconElement.textContent = isOpen ? "−" : "+";
+    panel.element.classList.toggle("is-collapsed", !isOpen);
+
+    const toggle = panel.element.querySelector("[data-accordion-toggle]");
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", isOpen ? "true" : "false");
+    }
+  });
 }
 
 function renderAuthGate() {
@@ -1237,8 +1579,18 @@ function renderPlan() {
 }
 
 function renderAssistant() {
+  const voiceCopy = getVoiceVisualizerCopy();
+
   els.assistantTitle.textContent = t("assistantTitle");
   els.assistantSubtitle.textContent = t("assistantSubtitle");
+  els.voiceModeBtn.textContent = getAssistantModeLabel("voice");
+  els.textModeBtn.textContent = getAssistantModeLabel("text");
+  els.voiceModeBtn.classList.toggle("is-active", state.assistantMode === "voice");
+  els.textModeBtn.classList.toggle("is-active", state.assistantMode === "text");
+  els.assistantVoicePane.classList.toggle("assistant-pane--hidden", state.assistantMode !== "voice");
+  els.assistantTextPane.classList.toggle("assistant-pane--hidden", state.assistantMode !== "text");
+  els.voiceVisualizerTitle.textContent = voiceCopy.title;
+  els.voiceVisualizerHint.textContent = voiceCopy.hint;
   els.chatsHeading.textContent = t("chatsHeading");
   els.chatsHint.textContent = t("chatsHint");
   els.newChatBtn.textContent = t("newChat");
@@ -1249,7 +1601,9 @@ function renderAssistant() {
   els.voiceBtn.textContent = state.realtime.voiceEnabled ? t("voiceOn") : t("voiceOff");
   els.connectionStatus.classList.toggle("is-live", state.realtime.connected);
   els.connectionStatusText.textContent = state.realtime.connected ? t("online") : t("offline");
-  els.locationStatusText.textContent = state.location ? t("locating") : t("locatingBusy");
+  els.locationStatusText.textContent = state.realtime.connected
+    ? state.realtime.micEnabled ? t("speechReady") : t("speechMuted")
+    : state.location ? t("locating") : t("locatingBusy");
   els.assistantNotice.textContent = !state.user
     ? t("loginRequired")
     : hasRealtimeAuth()
@@ -1260,6 +1614,8 @@ function renderAssistant() {
   els.disconnectBtn.disabled = !state.realtime.connected && !state.realtime.connecting;
   els.connectBtn.disabled = !state.user || state.realtime.connected || state.realtime.connecting;
   els.contextBtn.disabled = !state.user || !state.realtime.connected;
+  els.voiceModeBtn.disabled = !state.user;
+  els.textModeBtn.disabled = !state.user;
   els.chatInput.disabled = !state.user;
   els.sendBtn.disabled = !state.user;
   els.newChatBtn.disabled = !state.user;
@@ -1346,10 +1702,13 @@ function renderAll() {
   renderAssistant();
   renderThreads();
   renderChat();
+  renderAccordionPanels();
 }
 
 function normalizePlace(place, category) {
-  const openNow = place.opening_hours?.isOpen?.() ?? place.opening_hours?.open_now ?? null;
+  const openNow = typeof place.opening_hours?.isOpen === "function"
+    ? place.opening_hours.isOpen()
+    : null;
   const lat = typeof place.geometry?.location?.lat === "function"
     ? place.geometry.location.lat()
     : place.geometry?.location?.lat;
@@ -1359,6 +1718,9 @@ function normalizePlace(place, category) {
   const photo = place.photos?.[0]?.getUrl
     ? place.photos[0].getUrl({ maxWidth: 900, maxHeight: 600 })
     : "";
+  const distanceMeters = lat && lng && state.location?.coords
+    ? computeDistanceMeters(state.location.coords, { lat, lng })
+    : null;
 
   return {
     id: place.place_id,
@@ -1369,6 +1731,7 @@ function normalizePlace(place, category) {
     userRatingsTotal: place.user_ratings_total || null,
     priceLevel: place.price_level ?? null,
     openNow,
+    distanceMeters,
     mapsUrl: place.url || "",
     website: place.website || "",
     phone: place.international_phone_number || "",
@@ -1598,7 +1961,7 @@ async function loadNearbyPlaces() {
       seen.add(place.id);
       return true;
     })
-    .sort((a, b) => (b.rating || 0) - (a.rating || 0))
+    .sort((a, b) => scorePlaceForMoment(b) - scorePlaceForMoment(a))
     .slice(0, 8);
 }
 
@@ -1660,7 +2023,55 @@ function addRouteSummaryToPlan(placeId, summary) {
   renderPlan();
 }
 
-async function calculateRoute(placeId) {
+function buildRouteSummary(leg) {
+  return `${leg.duration?.text || ""} · ${leg.distance?.text || ""}`.trim();
+}
+
+async function getRouteBetween(origin, destination, { render = false } = {}) {
+  if (!origin || !destination || !state.maps.directionsService) {
+    return null;
+  }
+
+  const result = await state.maps.directionsService.route({
+    origin,
+    destination,
+    travelMode: google.maps.TravelMode[state.travelMode],
+  });
+
+  if (render && state.maps.directionsRenderer) {
+    state.maps.directionsRenderer.setDirections(result);
+  }
+
+  const leg = result.routes?.[0]?.legs?.[0];
+  if (!leg) {
+    return null;
+  }
+
+  return {
+    duration: leg.duration?.text || "",
+    distance: leg.distance?.text || "",
+    durationValue: Number(leg.duration?.value) || 0,
+    distanceValue: Number(leg.distance?.value) || 0,
+    startAddress: leg.start_address || "",
+    endAddress: leg.end_address || "",
+    summary: buildRouteSummary(leg),
+  };
+}
+
+function formatMinutesLabel(totalMinutes) {
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (!hours) {
+    return `${minutes} min`;
+  }
+  if (!minutes) {
+    return `${hours} h`;
+  }
+  return `${hours} h ${minutes} min`;
+}
+
+async function calculateRouteLegacy(placeId) {
   const place = findPlace(placeId);
   if (!place || !place.location || !state.maps.directionsService || !state.location?.coords) {
     return null;
@@ -1713,6 +2124,166 @@ function removePlaceFromPlan(placeId) {
   renderHero();
 }
 
+async function composeItinerary({
+  placeIds = [],
+  durationHours = 4,
+  stopCount = 3,
+  preferSaved = true,
+} = {}) {
+  if (!state.location?.coords) {
+    return { error: t("locationLoading") };
+  }
+
+  const requestedPlaces = Array.isArray(placeIds)
+    ? placeIds.map((placeId) => findPlace(placeId)).filter(Boolean)
+    : [];
+  const sourcePlaces = requestedPlaces.length
+    ? requestedPlaces
+    : preferSaved && state.plan.length
+      ? state.plan
+      : state.nearbyPlaces;
+  const dedupedPlaces = [...new Map(sourcePlaces.map((place) => [place.id, place])).values()]
+    .filter((place) => place?.location);
+  const candidates = requestedPlaces.length
+    ? dedupedPlaces
+    : dedupedPlaces.sort((a, b) => scorePlaceForMoment(b) - scorePlaceForMoment(a)).slice(0, 6);
+
+  if (!candidates.length) {
+    return { error: t("emptyNearby") };
+  }
+
+  const maxStops = Math.max(1, Math.min(Number(stopCount) || 3, 4));
+  const maxMinutes = Math.max(90, Math.min((Number(durationHours) || 4) * 60, 8 * 60));
+  const remaining = [...candidates];
+  const itinerary = [];
+  let cursor = state.location.coords;
+  let totalTravelMinutes = 0;
+  let totalVisitMinutes = 0;
+  const strategy = getWeatherStrategy();
+
+  while (remaining.length && itinerary.length < maxStops) {
+    let bestIndex = -1;
+    let bestRoute = null;
+    let bestScore = Number.NEGATIVE_INFINITY;
+
+    for (let index = 0; index < remaining.length; index += 1) {
+      const place = remaining[index];
+      const route = await getRouteBetween(cursor, place.location);
+      const travelMinutes = route ? Math.round(route.durationValue / 60) : 30;
+      const visitMinutes = estimateVisitMinutes(place);
+      const projectedTotal = totalTravelMinutes + totalVisitMinutes + travelMinutes + visitMinutes;
+      const totalPenalty = projectedTotal > maxMinutes ? (projectedTotal - maxMinutes) * 2 : 0;
+      const score = scorePlaceForMoment(place) - travelMinutes * 0.18 - totalPenalty;
+
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+        bestRoute = route;
+      }
+    }
+
+    if (bestIndex < 0) {
+      break;
+    }
+
+    const place = remaining.splice(bestIndex, 1)[0];
+    const visitMinutes = estimateVisitMinutes(place);
+    const projectedTotal = totalTravelMinutes + totalVisitMinutes
+      + Math.round((bestRoute?.durationValue || 0) / 60)
+      + visitMinutes;
+
+    if (itinerary.length && projectedTotal > maxMinutes) {
+      break;
+    }
+
+    const travelMinutes = Math.round((bestRoute?.durationValue || 0) / 60);
+    totalTravelMinutes += travelMinutes;
+    totalVisitMinutes += visitMinutes;
+    itinerary.push({
+      id: place.id,
+      name: place.name,
+      category: place.category,
+      address: place.address || "",
+      distanceFromCurrent: place.distanceMeters ? formatDistance(place.distanceMeters) : "",
+      travel: bestRoute || null,
+      visit_minutes: visitMinutes,
+      visit_text: formatMinutesLabel(visitMinutes),
+      reason: buildPlaceReason(place),
+      weather_fit: strategy,
+      maps_url: place.mapsUrl || "",
+    });
+    cursor = place.location;
+  }
+
+  if (!itinerary.length) {
+    return { error: t("noRoute") };
+  }
+
+  return {
+    strategy,
+    based_on_location: state.location.displayName || DEFAULT_COORDS.name,
+    travel_mode: t("travelModes")[state.travelMode] || state.travelMode,
+    weather: state.weather
+      ? `${weatherLabel(state.weather.current_weather.weathercode)} ${formatTemperature(
+          state.weather.current_weather.temperature
+        )}`
+      : t("weatherLoading"),
+    total_travel_minutes: totalTravelMinutes,
+    total_visit_minutes: totalVisitMinutes,
+    total_estimated_minutes: totalTravelMinutes + totalVisitMinutes,
+    total_estimated_text: formatMinutesLabel(totalTravelMinutes + totalVisitMinutes),
+    itinerary,
+  };
+}
+
+async function calculateRoute(placeId) {
+  const place = findPlace(placeId);
+  if (!place || !place.location || !state.maps.directionsService || !state.location?.coords) {
+    return null;
+  }
+
+  addRouteSummaryToPlan(placeId, t("routeBusy"));
+  const route = await getRouteBetween(state.location.coords, place.location, { render: true });
+
+  if (!route) {
+    addRouteSummaryToPlan(placeId, t("noRoute"));
+    return null;
+  }
+
+  addRouteSummaryToPlan(placeId, route.summary);
+  return route;
+}
+
+function summarizePlaceForAssistant(place, index) {
+  return `${index + 1}. ${place.name} | ${t("placeTypes")[place.category] || place.category} | ${
+    place.address || ""
+  } | ${place.openNow === null ? t("unknownHours") : place.openNow ? t("openNow") : t("closedNow")} | ${
+    Number.isFinite(place.rating) ? `rating ${place.rating}` : "rating n/a"
+  } | ${formatPriceLevel(place.priceLevel)} | ${place.distanceMeters ? formatDistance(place.distanceMeters) : "distance n/a"} | ${
+    buildPlaceReason(place) || "general fit"
+  }`;
+}
+
+function buildTurnResponseInstructions(userText = "") {
+  const message = String(userText || "").toLowerCase();
+  const asksForItinerary = /itiner|agenda|schedule|organi[sz]|ruta|route|plan de|plan for|roadmap|que hago hoy|what should i do/.test(
+    message
+  );
+  const asksForSuggestion = /sugier|recom|what do you suggest|que me sugieres|what can i do|que hago|ideas|plan/.test(
+    message
+  );
+
+  if (asksForItinerary) {
+    return "Use live context and call compose_itinerary before answering. Explain the order, travel time, estimated time at each stop, and why it fits the weather and current location.";
+  }
+
+  if (asksForSuggestion) {
+    return "Do not answer generically. Use the current location, weather, and nearby places already loaded. Mention at least two named places and explain why they fit right now.";
+  }
+
+  return "Use the live travel context and the latest traveler memory whenever it makes the answer more useful.";
+}
+
 function buildRealtimeInstructions() {
   const language = langMeta().label;
   const locationName = state.location?.displayName || DEFAULT_COORDS.name;
@@ -1721,27 +2292,22 @@ function buildRealtimeInstructions() {
         state.weather.current_weather.temperature
       )}`
     : "Unavailable";
-  const nearby = state.nearbyPlaces
-    .slice(0, 6)
-    .map(
-      (place, index) =>
-        `${index + 1}. ${place.name} | ${t("placeTypes")[place.category] || place.category} | ${
-          place.address || ""
-        } | ${place.openNow === null ? t("unknownHours") : place.openNow ? t("openNow") : t("closedNow")} | ${
-          Number.isFinite(place.rating) ? `rating ${place.rating}` : "rating n/a"
-        } | ${formatPriceLevel(place.priceLevel)}`
-    )
+  const recommendedNow = getRecommendedPlaces(3).map(summarizePlaceForAssistant).join("\n");
+  const nearby = state.nearbyPlaces.slice(0, 6).map(summarizePlaceForAssistant).join("\n");
+  const plan = state.plan
+    .map((place, index) => `${index + 1}. ${place.name} | ${place.routeSummary || ""} | ${buildPlaceReason(place)}`)
     .join("\n");
-  const plan = state.plan.map((place, index) => `${index + 1}. ${place.name} | ${place.routeSummary || ""}`).join("\n");
   const transcript = getRecentTranscript();
 
   return `
 You are a warm, proactive tourism concierge for travelers.
 Always reply in ${language}.
 Be concise, useful, and practical.
+Never give generic suggestions when live location, weather, nearby places, or saved plan data are available.
+If the traveler asks what to do, what you suggest, or for a plan, use named places from the live context and explain weather fit, route convenience, and expected pacing.
+If the traveler asks for an itinerary, route order, or schedule, call compose_itinerary before answering.
+If the traveler asks for route details to a specific stop, call get_route_to_place.
 Use the available tools whenever live data would improve the answer.
-When suggesting plans, be specific about timing, order, weather fit, and route convenience.
-You can ask short follow-up questions to learn the traveler's style, budget, pace, companions, or food interests.
 Do not invent exact prices or schedules if the live context does not include them.
 Remember stable traveler preferences across turns and use them proactively when helpful.
 
@@ -1751,6 +2317,9 @@ Current travel context:
 - Current weather: ${weather}
 - Travel mode preference: ${state.travelMode}
 - Traveler memory: ${state.memorySummary}
+
+Recommended right now:
+${recommendedNow || "No recommendations available yet."}
 
 Nearby places:
 ${nearby || "No live nearby places loaded yet."}
@@ -1768,7 +2337,7 @@ function buildRealtimeTools() {
     {
       type: "function",
       name: "get_live_context",
-      description: "Get the latest location, weather, nearby places, and saved plan.",
+      description: "Get the latest location, weather, nearby places, recommended places, and saved plan.",
       parameters: { type: "object", properties: {} },
     },
     {
@@ -1795,6 +2364,23 @@ function buildRealtimeTools() {
           place_id: { type: "string" },
         },
         required: ["place_id"],
+      },
+    },
+    {
+      type: "function",
+      name: "compose_itinerary",
+      description: "Build a practical itinerary using the current location, weather, travel mode, and available places.",
+      parameters: {
+        type: "object",
+        properties: {
+          place_ids: {
+            type: "array",
+            items: { type: "string" },
+          },
+          duration_hours: { type: "number" },
+          stop_count: { type: "number" },
+          prefer_saved: { type: "boolean" },
+        },
       },
     },
     {
@@ -1898,7 +2484,14 @@ function extractTextFromResponse(response) {
 }
 
 async function handleToolCall(outputItem) {
-  const args = outputItem.arguments ? JSON.parse(outputItem.arguments) : {};
+  let args = {};
+  if (outputItem.arguments) {
+    try {
+      args = JSON.parse(outputItem.arguments);
+    } catch {
+      args = {};
+    }
+  }
   let result;
 
   switch (outputItem.name) {
@@ -1906,7 +2499,10 @@ async function handleToolCall(outputItem) {
       result = {
         location: state.location,
         weather: state.weather?.current_weather || null,
+        weather_strategy: getWeatherStrategy(),
+        travel_mode: t("travelModes")[state.travelMode] || state.travelMode,
         nearby_places: state.nearbyPlaces,
+        recommended_now: getRecommendedPlaces(3),
         saved_plan: state.plan,
       };
       break;
@@ -1922,6 +2518,14 @@ async function handleToolCall(outputItem) {
       result = route || { error: t("noRoute") };
       break;
     }
+    case "compose_itinerary":
+      result = await composeItinerary({
+        placeIds: args.place_ids,
+        durationHours: args.duration_hours,
+        stopCount: args.stop_count,
+        preferSaved: args.prefer_saved ?? true,
+      });
+      break;
     case "save_activity_to_plan":
       addPlaceToPlan(args.place_id);
       result = { saved: Boolean(state.plan.find((item) => item.id === args.place_id)), plan: state.plan };
@@ -2270,6 +2874,7 @@ function sendTextToAssistant(text) {
     return;
   }
 
+  updateRealtimeSession();
   pushMessage("user", clean);
   sendRealtimeEvent({
     type: "conversation.item.create",
@@ -2288,6 +2893,7 @@ function sendTextToAssistant(text) {
     type: "response.create",
     response: {
       output_modalities: state.realtime.voiceEnabled ? ["audio", "text"] : ["text"],
+      instructions: buildTurnResponseInstructions(clean),
     },
   });
 }
@@ -2345,8 +2951,15 @@ function resetTravelerSession() {
     localStorage.getItem(LOCAL_LANGUAGE_CONFIRMED_KEY) === "1"
     || Boolean(localStorage.getItem(LOCAL_LANGUAGE_KEY));
   state.languageGateOpen = !state.languageConfirmed;
+  state.accordions = {
+    overview: true,
+    map: false,
+    nearby: false,
+    plan: false,
+  };
   state.realtime.micEnabled = DEFAULT_SETTINGS.micEnabled;
   state.realtime.voiceEnabled = DEFAULT_SETTINGS.voiceEnabled;
+  state.assistantMode = DEFAULT_SETTINGS.assistantMode;
   setChats([createChat()]);
   localStorage.removeItem(LOCAL_PLAN_KEY);
 }
@@ -2371,7 +2984,10 @@ async function hydrateUserState(firebaseUser) {
     state.confirmedLanguage = state.language;
     state.travelMode = stored.settings?.travelMode || DEFAULT_SETTINGS.travelMode;
     state.realtime.micEnabled = stored.settings?.micEnabled ?? DEFAULT_SETTINGS.micEnabled;
-    state.realtime.voiceEnabled = stored.settings?.voiceEnabled ?? DEFAULT_SETTINGS.voiceEnabled;
+    state.assistantMode = stored.settings?.assistantMode === "text" ? "text" : DEFAULT_SETTINGS.assistantMode;
+    state.realtime.voiceEnabled = state.assistantMode === "voice"
+      ? stored.settings?.voiceEnabled ?? DEFAULT_SETTINGS.voiceEnabled
+      : false;
     state.plan = sanitizePlan(stored.plan ?? loadPlan());
     setChats(stored.chats, stored.activeChatId);
     state.memorySummary = String(stored.memorySummary || "").trim() || buildTravelerMemory();
@@ -2537,6 +3153,16 @@ async function refreshContext() {
 
 function bindEvents() {
   document.addEventListener("click", (event) => {
+    const accordionToggle = event.target.closest("[data-accordion-toggle]");
+    if (accordionToggle) {
+      const key = accordionToggle.dataset.accordionToggle;
+      if (key && Object.prototype.hasOwnProperty.call(state.accordions, key)) {
+        state.accordions[key] = !state.accordions[key];
+        renderAccordionPanels();
+      }
+      return;
+    }
+
     const chatButton = event.target.closest("[data-chat-id]");
     if (chatButton) {
       switchChat(chatButton.dataset.chatId);
@@ -2594,6 +3220,21 @@ function bindEvents() {
     const helperButton = event.target.closest("[data-helper]");
     if (helperButton) {
       els.chatInput.value = helperButton.dataset.helper === "plan" ? t("quick1") : t("quick2");
+      return;
+    }
+
+    const assistantModeButton = event.target.closest("[data-assistant-mode]");
+    if (assistantModeButton) {
+      state.assistantMode = assistantModeButton.dataset.assistantMode === "text" ? "text" : "voice";
+      state.realtime.voiceEnabled = state.assistantMode === "voice";
+      if (state.realtime.connected) {
+        updateRealtimeSession();
+      }
+      schedulePersist();
+      renderAssistant();
+      if (state.assistantMode === "text") {
+        els.chatInput.focus();
+      }
     }
   });
 
