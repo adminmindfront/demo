@@ -27,6 +27,7 @@ const OPENAI_API_KEY = "Openai Apikey";
 const OPENAI_TOKEN_ENDPOINT = "https://ia-641197532873.us-central1.run.app";
 const EXPERIENCE_VERSION = "20260331h";
 const LOCAL_LANGUAGE_KEY = "travel-language";
+const LOCAL_LANGUAGE_CONFIRMED_KEY = "travel-language-confirmed";
 const LOCAL_PLAN_KEY = "travel-plan";
 const DEFAULT_CHAT_LIMIT = 30;
 const DEFAULT_MEMORY_SUMMARY =
@@ -350,6 +351,15 @@ const DEFAULT_SETTINGS = {
 
 const state = {
   language: DEFAULT_SETTINGS.language,
+  confirmedLanguage: localStorage.getItem(LOCAL_LANGUAGE_KEY) || DEFAULT_SETTINGS.language,
+  languageConfirmed:
+    localStorage.getItem(LOCAL_LANGUAGE_CONFIRMED_KEY) === "1"
+    || Boolean(localStorage.getItem(LOCAL_LANGUAGE_KEY)),
+  languageGateOpen:
+    !(
+      localStorage.getItem(LOCAL_LANGUAGE_CONFIRMED_KEY) === "1"
+      || Boolean(localStorage.getItem(LOCAL_LANGUAGE_KEY))
+    ),
   plan: loadPlan(),
   travelMode: DEFAULT_SETTINGS.travelMode,
   location: null,
@@ -401,6 +411,7 @@ const els = {
   languageCloseBtn: document.getElementById("languageCloseBtn"),
   languageSelectLabel: document.getElementById("languageSelectLabel"),
   languageSelect: document.getElementById("languageSelect"),
+  languageContinueBtn: document.getElementById("languageContinueBtn"),
   authGate: document.getElementById("authGate"),
   authEyebrow: document.getElementById("authEyebrow"),
   authTitle: document.getElementById("authTitle"),
@@ -865,6 +876,7 @@ function renderLanguageGate() {
   els.languageTitle.textContent = t("gateTitle");
   els.languageHint.textContent = t("gateHint");
   els.languageSelectLabel.textContent = t("languagePill");
+  els.languageContinueBtn.textContent = getContinueLabel();
   els.languageCurrent.innerHTML = `
     <article class="language-current__card">
       <span class="language-current__flag">${current.flag}</span>
@@ -880,18 +892,45 @@ function renderLanguageGate() {
       ${item.flag} ${item.label} (${item.name})
     </option>
   `).join("");
-  els.languageCloseBtn.style.display = localStorage.getItem(LOCAL_LANGUAGE_KEY) ? "inline-flex" : "none";
+  els.languageCloseBtn.style.display = state.languageConfirmed ? "inline-flex" : "none";
+  els.languageGate.style.display = state.languageGateOpen ? "grid" : "none";
 }
 
-function applyLanguageSelection(languageCode) {
+function previewLanguageSelection(languageCode) {
   state.language = LANGUAGES.some((item) => item.code === languageCode) ? languageCode : "es";
-  localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
   document.documentElement.lang = state.language;
   document.documentElement.dir = langMeta().dir;
-  els.languageGate.style.display = "none";
+  state.quickSuggestion = buildQuickSuggestion();
+  renderAll();
+  if (state.realtime.connected) {
+    updateRealtimeSession();
+  }
+}
+
+function confirmLanguageSelection() {
+  state.languageConfirmed = true;
+  state.languageGateOpen = false;
+  state.confirmedLanguage = state.language;
+  localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
+  localStorage.setItem(LOCAL_LANGUAGE_CONFIRMED_KEY, "1");
   schedulePersist();
   renderAll();
   refreshContext().catch((error) => console.error(error));
+}
+
+function getContinueLabel() {
+  const labels = {
+    es: "Continuar",
+    en: "Continue",
+    fr: "Continuer",
+    pt: "Continuar",
+    ja: "続ける",
+    ko: "계속",
+    ar: "متابعة",
+    zh: "继续",
+    de: "Weiter",
+  };
+  return labels[state.language] || labels.en;
 }
 
 function renderAuthGate() {
@@ -933,7 +972,7 @@ function renderAuthGate() {
   els.authError.textContent = state.authError;
   els.authError.style.display = state.authError ? "block" : "none";
 
-  const shouldShowAuth = state.authStatus !== "loading" && !state.user;
+  const shouldShowAuth = state.authStatus !== "loading" && !state.user && state.languageConfirmed && !state.languageGateOpen;
   els.authGate.style.display = shouldShowAuth ? "grid" : "none";
 }
 
@@ -951,9 +990,12 @@ function renderHero() {
   const lang = langMeta();
   els.brandTitle.textContent = t("brandTitle");
   els.brandSubtitle.textContent = t("brandSubtitle");
-  els.accountPill.textContent = state.user
-    ? `${t("accountPrefix")}: ${state.user.displayName || state.user.email || "Traveler"}`
-    : t("loginRequired");
+  els.accountPill.innerHTML = state.user
+    ? `
+        ${state.user.photoURL ? `<img class="account-pill__avatar" src="${escapeHtml(state.user.photoURL)}" alt="${escapeHtml(state.user.displayName || state.user.email || "Profile")}" />` : ""}
+        <span>${escapeHtml(`${t("accountPrefix")}: ${state.user.displayName || state.user.email || "Traveler"}`)}</span>
+      `
+    : escapeHtml(t("loginRequired"));
   els.accountPill.classList.toggle("is-visible", Boolean(state.user));
   els.authLogoutBtn.textContent = t("logout");
   els.authLogoutBtn.style.display = state.user ? "inline-flex" : "none";
@@ -2099,6 +2141,11 @@ function resetTravelerSession() {
   state.plan = [];
   state.memorySummary = DEFAULT_MEMORY_SUMMARY;
   state.travelMode = DEFAULT_SETTINGS.travelMode;
+  state.confirmedLanguage = localStorage.getItem(LOCAL_LANGUAGE_KEY) || DEFAULT_SETTINGS.language;
+  state.languageConfirmed =
+    localStorage.getItem(LOCAL_LANGUAGE_CONFIRMED_KEY) === "1"
+    || Boolean(localStorage.getItem(LOCAL_LANGUAGE_KEY));
+  state.languageGateOpen = !state.languageConfirmed;
   state.realtime.micEnabled = DEFAULT_SETTINGS.micEnabled;
   state.realtime.voiceEnabled = DEFAULT_SETTINGS.voiceEnabled;
   setChats([createChat()]);
@@ -2122,6 +2169,7 @@ async function hydrateUserState(firebaseUser) {
       photoURL: firebaseUser.photoURL || stored.profile?.photoURL || "",
     };
     state.language = stored.settings?.language || localStorage.getItem(LOCAL_LANGUAGE_KEY) || state.language;
+    state.confirmedLanguage = state.language;
     state.travelMode = stored.settings?.travelMode || DEFAULT_SETTINGS.travelMode;
     state.realtime.micEnabled = stored.settings?.micEnabled ?? DEFAULT_SETTINGS.micEnabled;
     state.realtime.voiceEnabled = stored.settings?.voiceEnabled ?? DEFAULT_SETTINGS.voiceEnabled;
@@ -2351,14 +2399,22 @@ function bindEvents() {
   });
 
   els.changeLanguageBtn.addEventListener("click", () => {
-    els.languageGate.style.display = "grid";
+    state.languageGateOpen = true;
+    renderLanguageGate();
     els.languageSelect.value = state.language;
   });
   els.languageCloseBtn.addEventListener("click", () => {
-    els.languageGate.style.display = "none";
+    state.language = state.confirmedLanguage;
+    document.documentElement.lang = state.language;
+    document.documentElement.dir = langMeta().dir;
+    state.languageGateOpen = false;
+    renderAll();
   });
   els.languageSelect.addEventListener("change", () => {
-    applyLanguageSelection(els.languageSelect.value);
+    previewLanguageSelection(els.languageSelect.value);
+  });
+  els.languageContinueBtn.addEventListener("click", () => {
+    confirmLanguageSelection();
   });
   els.authLoginModeBtn.addEventListener("click", () => {
     state.authMode = "login";
