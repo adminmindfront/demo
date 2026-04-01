@@ -74,10 +74,11 @@ button {
   padding: 1rem;
   background: rgba(4, 9, 17, 0.8);
   backdrop-filter: blur(18px);
+  overflow-y: auto;
 }
 
 .language-card {
-  width: min(980px, 100%);
+  width: min(560px, 100%);
   padding: 1.5rem;
   border-radius: 32px;
   background:
@@ -85,6 +86,8 @@ button {
     rgba(12, 23, 40, 0.92);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
 }
 
 .language-card__head {
@@ -374,75 +377,33 @@ button {
   line-height: 1.65;
 }
 
-.language-grid {
+.language-picker {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 0.9rem;
-  margin-top: 1.5rem;
+  margin-top: 1.25rem;
 }
 
-.language-option {
+.language-select__field {
   display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 0.75rem;
-  align-items: center;
-  min-height: 108px;
-  padding: 1rem 1.05rem;
-  text-align: left;
+  gap: 0.45rem;
+}
+
+.language-select__field span {
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.language-select__field select {
+  width: 100%;
+  min-height: 3.4rem;
+  padding: 0.9rem 1rem;
   color: var(--white);
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.04));
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 22px;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-}
-
-.language-option:hover,
-.language-option:focus-visible {
-  transform: translateY(-2px);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0.06));
-  border-color: rgba(143, 212, 255, 0.4);
-  box-shadow: 0 16px 32px rgba(2, 10, 24, 0.24);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(255, 255, 255, 0.05));
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 18px;
   outline: none;
-}
-
-.language-option.is-selected {
-  border-color: rgba(143, 212, 255, 0.56);
-  background:
-    linear-gradient(135deg, rgba(71, 168, 255, 0.18), rgba(43, 166, 138, 0.12)),
-    rgba(255, 255, 255, 0.06);
-}
-
-.language-option__flag {
-  width: 3rem;
-  height: 3rem;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  background: rgba(8, 17, 31, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 1.45rem;
-}
-
-.language-option__meta {
-  display: grid;
-  gap: 0.28rem;
-}
-
-.language-option__name {
-  font-weight: 700;
-  font-size: 1rem;
-}
-
-.language-option__code {
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.86rem;
-}
-
-.language-option__check {
-  color: var(--sky-300);
-  font-size: 1rem;
+  appearance: auto;
 }
 
 .hero {

@@ -395,11 +395,12 @@ let memoryTimer = null;
 
 const els = {
   languageGate: document.getElementById("languageGate"),
-  languageGrid: document.getElementById("languageGrid"),
   languageTitle: document.getElementById("languageTitle"),
   languageHint: document.getElementById("languageHint"),
   languageCurrent: document.getElementById("languageCurrent"),
   languageCloseBtn: document.getElementById("languageCloseBtn"),
+  languageSelectLabel: document.getElementById("languageSelectLabel"),
+  languageSelect: document.getElementById("languageSelect"),
   authGate: document.getElementById("authGate"),
   authEyebrow: document.getElementById("authEyebrow"),
   authTitle: document.getElementById("authTitle"),
@@ -863,6 +864,7 @@ function renderLanguageGate() {
   document.documentElement.dir = current.dir;
   els.languageTitle.textContent = t("gateTitle");
   els.languageHint.textContent = t("gateHint");
+  els.languageSelectLabel.textContent = t("languagePill");
   els.languageCurrent.innerHTML = `
     <article class="language-current__card">
       <span class="language-current__flag">${current.flag}</span>
@@ -873,17 +875,23 @@ function renderLanguageGate() {
       <span class="language-current__badge">${escapeHtml(t("languagePill"))}</span>
     </article>
   `;
-  els.languageGrid.innerHTML = LANGUAGES.map((item) => `
-    <button class="language-option ${item.code === current.code ? "is-selected" : ""}" type="button" data-language="${item.code}">
-      <span class="language-option__flag">${item.flag}</span>
-      <span class="language-option__meta">
-        <span class="language-option__name">${item.label}</span>
-        <span class="language-option__code">${item.name}</span>
-      </span>
-      <span class="language-option__check">${item.code === current.code ? "●" : "○"}</span>
-    </button>
+  els.languageSelect.innerHTML = LANGUAGES.map((item) => `
+    <option value="${item.code}" ${item.code === current.code ? "selected" : ""}>
+      ${item.flag} ${item.label} (${item.name})
+    </option>
   `).join("");
   els.languageCloseBtn.style.display = localStorage.getItem(LOCAL_LANGUAGE_KEY) ? "inline-flex" : "none";
+}
+
+function applyLanguageSelection(languageCode) {
+  state.language = LANGUAGES.some((item) => item.code === languageCode) ? languageCode : "es";
+  localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
+  document.documentElement.lang = state.language;
+  document.documentElement.dir = langMeta().dir;
+  els.languageGate.style.display = "none";
+  schedulePersist();
+  renderAll();
+  refreshContext().catch((error) => console.error(error));
 }
 
 function renderAuthGate() {
@@ -2282,19 +2290,6 @@ async function refreshContext() {
 
 function bindEvents() {
   document.addEventListener("click", (event) => {
-    const languageButton = event.target.closest("[data-language]");
-    if (languageButton) {
-      state.language = languageButton.dataset.language;
-      localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
-      document.documentElement.lang = state.language;
-      document.documentElement.dir = langMeta().dir;
-      els.languageGate.style.display = "none";
-      schedulePersist();
-      renderAll();
-      refreshContext().catch((error) => console.error(error));
-      return;
-    }
-
     const chatButton = event.target.closest("[data-chat-id]");
     if (chatButton) {
       switchChat(chatButton.dataset.chatId);
@@ -2357,9 +2352,13 @@ function bindEvents() {
 
   els.changeLanguageBtn.addEventListener("click", () => {
     els.languageGate.style.display = "grid";
+    els.languageSelect.value = state.language;
   });
   els.languageCloseBtn.addEventListener("click", () => {
     els.languageGate.style.display = "none";
+  });
+  els.languageSelect.addEventListener("change", () => {
+    applyLanguageSelection(els.languageSelect.value);
   });
   els.authLoginModeBtn.addEventListener("click", () => {
     state.authMode = "login";
