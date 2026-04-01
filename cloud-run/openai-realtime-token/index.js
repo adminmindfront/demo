@@ -2,6 +2,71 @@ const functions = require("@google-cloud/functions-framework");
 
 const OPENAI_REALTIME_SECRET_URL = "https://api.openai.com/v1/realtime/client_secrets";
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function createRealtimeSecret(apiKey, model, voice) {
+  let lastError = null;
+
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const openaiResponse = await fetchWithTimeout(
+        OPENAI_REALTIME_SECRET_URL,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            session: {
+              type: "realtime",
+              model,
+              audio: {
+                output: {
+                  voice,
+                },
+              },
+            },
+          }),
+        },
+        10000
+      );
+
+      const data = await openaiResponse.json().catch(() => null);
+
+      if (!openaiResponse.ok) {
+        return {
+          ok: false,
+          status: openaiResponse.status,
+          data,
+        };
+      }
+
+      return {
+        ok: true,
+        status: 200,
+        data,
+      };
+    } catch (error) {
+      lastError = error;
+    }
+  }
+
+  throw lastError || new Error("Realtime secret request failed");
+}
+
 function setCors(res, origin = "*") {
   res.set("Access-Control-Allow-Origin", origin || "*");
   res.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -43,46 +108,30 @@ functions.http("helloHttp", async (req, res) => {
     "marin";
 
   try {
-    const openaiResponse = await fetch(OPENAI_REALTIME_SECRET_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        session: {
-          type: "realtime",
-          model,
-          audio: {
-            output: {
-              voice,
-            },
-          },
-        },
-      }),
-    });
+    const result = await createRealtimeSecret(apiKey, model, voice);
 
-    const data = await openaiResponse.json().catch(() => null);
-
-    if (!openaiResponse.ok) {
-      res.status(openaiResponse.status).json({
+    if (!result.ok) {
+      res.status(result.status).json({
         ok: false,
-        error: data?.error?.message || "Failed to create realtime client secret",
-        details: data || null,
+        error: result.data?.error?.message || "Failed to create realtime client secret",
+        details: result.data || null,
       });
       return;
     }
 
     res.status(200).json({
       ok: true,
-      client_secret: data?.client_secret || null,
-      expires_at: data?.expires_at || null,
-      session: data?.session || null,
+      client_secret: result.data?.client_secret || null,
+      expires_at: result.data?.expires_at || null,
+      session: result.data?.session || null,
     });
   } catch (error) {
-    res.status(500).json({
+    const status = error?.name === "AbortError" ? 504 : 500;
+    res.status(status).json({
       ok: false,
-      error: error?.message || "Unexpected server error",
+      error: error?.name === "AbortError"
+        ? "OpenAI realtime token request timed out"
+        : error?.message || "Unexpected server error",
     });
   }
 });

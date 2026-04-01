@@ -528,6 +528,50 @@ function hasRealtimeAuth() {
   return Boolean(OPENAI_TOKEN_ENDPOINT) || isConfigured(OPENAI_API_KEY);
 }
 
+function getMicFallbackMessage() {
+  const labels = {
+    es: "No detecte un microfono disponible. Seguimos en modo texto.",
+    en: "No microphone was detected. We can continue in text mode.",
+    fr: "Aucun micro disponible. Nous continuons en mode texte.",
+    pt: "Nao detectei microfone disponivel. Seguimos em modo texto.",
+    ja: "利用可能なマイクが見つかりません。テキストモードで続けます。",
+    ko: "사용 가능한 마이크가 없습니다. 텍스트 모드로 계속합니다.",
+    ar: "لم يتم العثور على ميكروفون متاح. سنكمل بالنص.",
+    zh: "未检测到可用麦克风。我们将继续使用文字模式。",
+    de: "Kein Mikrofon gefunden. Wir machen im Textmodus weiter.",
+  };
+  return labels[state.language] || labels.en;
+}
+
+function getRealtimeTimeoutMessage() {
+  const labels = {
+    es: "El servicio de voz tardo demasiado en responder. Intenta de nuevo en unos segundos.",
+    en: "The realtime service took too long to respond. Please try again in a few seconds.",
+    fr: "Le service temps reel a tarde trop longtemps. Reessaie dans quelques secondes.",
+    pt: "O servico em tempo real demorou demais. Tente novamente em alguns segundos.",
+    ja: "リアルタイム接続の応答に時間がかかりすぎました。数秒後に再試行してください。",
+    ko: "실시간 서비스 응답이 너무 오래 걸렸습니다. 잠시 후 다시 시도해 주세요.",
+    ar: "استغرق الاتصال الفوري وقتا طويلا جدا. حاول مرة اخرى بعد بضع ثوان.",
+    zh: "实时服务响应时间过长。请几秒后重试。",
+    de: "Der Realtime-Dienst hat zu lange gebraucht. Bitte versuche es in ein paar Sekunden erneut.",
+  };
+  return labels[state.language] || labels.en;
+}
+
+function normalizeRealtimeError(error) {
+  const message = String(error?.message || "");
+
+  if (error?.name === "NotFoundError" || /Requested device not found/i.test(message)) {
+    return getMicFallbackMessage();
+  }
+
+  if (error?.name === "AbortError" || /504/.test(message) || /timeout/i.test(message)) {
+    return getRealtimeTimeoutMessage();
+  }
+
+  return message || t("openaiMissing");
+}
+
 function weatherLabel(code) {
   const key = WEATHER_CODES[code] || "clear";
   return WEATHER_TEXT[state.language][key] || WEATHER_TEXT.en[key];
@@ -1891,23 +1935,39 @@ async function handleRealtimeEvent(raw) {
 
 async function getRealtimeToken() {
   if (OPENAI_TOKEN_ENDPOINT) {
-    const response = await fetch(OPENAI_TOKEN_ENDPOINT, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "gpt-realtime",
-        voice: "marin",
-      }),
-    });
+    let lastError = null;
 
-    if (!response.ok) {
-      throw new Error(`Realtime token endpoint failed with ${response.status}`);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+      try {
+        const response = await fetch(OPENAI_TOKEN_ENDPOINT, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-realtime",
+            voice: "marin",
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Realtime token endpoint failed with ${response.status}`);
+        }
+
+        const data = await response.json();
+        clearTimeout(timeoutId);
+        return data.client_secret?.value || data.value || data.client_secret;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        lastError = error;
+      }
     }
 
-    const data = await response.json();
-    return data.client_secret?.value || data.value || data.client_secret;
+    throw lastError || new Error("Realtime token request failed");
   }
 
   if (!isConfigured(OPENAI_API_KEY)) {
@@ -1967,12 +2027,24 @@ async function connectRealtime() {
       handleRealtimeEvent(event).catch((error) => console.error(error));
     });
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    state.realtime.stream = stream;
-    stream.getTracks().forEach((track) => {
-      track.enabled = state.realtime.micEnabled;
-      pc.addTrack(track, stream);
-    });
+    let stream = null;
+    if (state.realtime.micEnabled && navigator.mediaDevices?.getUserMedia) {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        state.realtime.stream = stream;
+        stream.getTracks().forEach((track) => {
+          track.enabled = state.realtime.micEnabled;
+          pc.addTrack(track, stream);
+        });
+      } catch (error) {
+        if (error?.name === "NotFoundError" || /Requested device not found/i.test(String(error?.message || ""))) {
+          state.realtime.micEnabled = false;
+          state.realtime.stream = null;
+        } else {
+          throw error;
+        }
+      }
+    }
 
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
@@ -2002,6 +2074,9 @@ async function connectRealtime() {
     if (!state.messages.length) {
       pushMessage("assistant", t("fallbackGreeting"));
     }
+    if (!state.realtime.micEnabled && !stream) {
+      pushMessage("assistant", getMicFallbackMessage());
+    }
     renderAssistant();
 
     if (state.messages.length <= 1) {
@@ -2019,7 +2094,7 @@ async function connectRealtime() {
     }
   } catch (error) {
     console.error(error);
-    pushMessage("assistant", `${t("openaiMissing")}\n${error.message || ""}`.trim());
+    pushMessage("assistant", normalizeRealtimeError(error));
     disconnectRealtime();
   } finally {
     state.realtime.connecting = false;
