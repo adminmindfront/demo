@@ -68,20 +68,32 @@ async function createRealtimeSecret(apiKey, model, voice) {
   throw lastError || new Error("Realtime secret request failed");
 }
 
-async function createRealtimeCall(apiKey, offerSdp) {
+async function createRealtimeCall(apiKey, offerSdp, model, voice) {
   let lastError = null;
 
   for (let attempt = 0; attempt < 2; attempt += 1) {
     try {
+      const sessionConfig = JSON.stringify({
+        type: "realtime",
+        model,
+        audio: {
+          output: {
+            voice,
+          },
+        },
+      });
+      const payload = new FormData();
+      payload.set("sdp", offerSdp);
+      payload.set("session", sessionConfig);
+
       const openaiResponse = await fetchWithTimeout(
         OPENAI_REALTIME_CALLS_URL,
         {
           method: "POST",
           headers: {
             Authorization: `Bearer ${apiKey}`,
-            "Content-Type": "application/sdp",
           },
-          body: offerSdp,
+          body: payload,
         },
         15000
       );
@@ -152,7 +164,7 @@ functions.http("helloHttp", async (req, res) => {
 
   try {
     if (offerSdp) {
-      const callResult = await createRealtimeCall(apiKey, offerSdp);
+      const callResult = await createRealtimeCall(apiKey, offerSdp, model, voice);
 
       if (!callResult.ok) {
         let detail = callResult.rawText;

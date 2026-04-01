@@ -1385,48 +1385,68 @@ async function loadGoogleMaps() {
   }
 
   state.maps.loading = true;
-  await new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-google-maps="true"]');
-    if (existing) {
-      existing.addEventListener("load", resolve, { once: true });
-      existing.addEventListener("error", reject, { once: true });
-      return;
-    }
+  try {
+    await new Promise((resolve, reject) => {
+      if (window.google?.maps?.Map) {
+        resolve();
+        return;
+      }
 
-    const script = document.createElement("script");
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
-      GOOGLE_API_KEY
-    )}&libraries=places,geometry&v=weekly&loading=async`;
-    script.async = true;
-    script.defer = true;
-    script.dataset.googleMaps = "true";
-    script.addEventListener("load", resolve, { once: true });
-    script.addEventListener("error", reject, { once: true });
-    document.head.appendChild(script);
-  });
+      const existing = document.querySelector('script[data-google-maps="true"]');
+      if (existing) {
+        const waitForGoogleMaps = () => {
+          if (window.google?.maps?.Map) {
+            resolve();
+            return;
+          }
+          setTimeout(waitForGoogleMaps, 100);
+        };
+        waitForGoogleMaps();
+        return;
+      }
 
-  state.maps.ready = true;
-  const { Map } = await google.maps.importLibrary("maps");
-  await google.maps.importLibrary("places");
+      const callbackName = "__mindfrontGoogleMapsReady";
+      window[callbackName] = () => {
+        delete window[callbackName];
+        resolve();
+      };
 
-  state.maps.map = new Map(els.mapCanvas, {
-    center: DEFAULT_COORDS,
-    zoom: 13,
-    disableDefaultUI: true,
-    zoomControl: true,
-  });
-  state.maps.geocoder = new google.maps.Geocoder();
-  state.maps.directionsService = new google.maps.DirectionsService();
-  state.maps.directionsRenderer = new google.maps.DirectionsRenderer({
-    map: state.maps.map,
-    suppressMarkers: false,
-    polylineOptions: {
-      strokeColor: "#8fd4ff",
-      strokeOpacity: 0.9,
-      strokeWeight: 5,
-    },
-  });
-  state.maps.placesService = new google.maps.places.PlacesService(state.maps.map);
+      const script = document.createElement("script");
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
+        GOOGLE_API_KEY
+      )}&libraries=places,geometry&v=weekly&loading=async&callback=${callbackName}`;
+      script.async = true;
+      script.defer = true;
+      script.dataset.googleMaps = "true";
+      script.addEventListener("error", () => {
+        delete window[callbackName];
+        reject(new Error("Google Maps script failed to load"));
+      }, { once: true });
+      document.head.appendChild(script);
+    });
+
+    state.maps.ready = true;
+    state.maps.map = new google.maps.Map(els.mapCanvas, {
+      center: DEFAULT_COORDS,
+      zoom: 13,
+      disableDefaultUI: true,
+      zoomControl: true,
+    });
+    state.maps.geocoder = new google.maps.Geocoder();
+    state.maps.directionsService = new google.maps.DirectionsService();
+    state.maps.directionsRenderer = new google.maps.DirectionsRenderer({
+      map: state.maps.map,
+      suppressMarkers: false,
+      polylineOptions: {
+        strokeColor: "#8fd4ff",
+        strokeOpacity: 0.9,
+        strokeWeight: 5,
+      },
+    });
+    state.maps.placesService = new google.maps.places.PlacesService(state.maps.map);
+  } finally {
+    state.maps.loading = false;
+  }
 }
 
 async function detectLocation() {
