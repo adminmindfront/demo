@@ -1328,6 +1328,14 @@ function clearPendingVoiceResponseTimer() {
   }
 }
 
+function getVoiceRetryMessage() {
+  const labels = {
+    es: "No alcance a entenderte bien. Intenta repetirlo y te respondo con el contexto de tu ubicacion.",
+    en: "I could not catch that clearly. Please repeat it and I will answer using your live location context.",
+  };
+  return labels[state.language] || labels.en;
+}
+
 function getVoiceVisualizerCopy() {
   if (!state.user) {
     return {
@@ -1959,6 +1967,23 @@ function nearbySearch(request) {
   });
 }
 
+function mergeNearbyPlaces(places) {
+  const merged = [...state.nearbyPlaces];
+  const known = new Set(merged.map((place) => place.id));
+
+  for (const place of places) {
+    if (place?.id && !known.has(place.id)) {
+      known.add(place.id);
+      merged.push(place);
+    }
+  }
+
+  state.nearbyPlaces = merged
+    .filter(Boolean)
+    .sort((a, b) => scorePlaceForMoment(b) - scorePlaceForMoment(a))
+    .slice(0, 18);
+}
+
 function placeDetails(placeId) {
   return new Promise((resolve) => {
     state.maps.placesService.getDetails(
@@ -1989,6 +2014,100 @@ function placeDetails(placeId) {
       }
     );
   });
+}
+
+function scoreExpandedPlace(place) {
+  const ratingScore = Number(place.rating || 0) * 3;
+  const popularityScore = Math.log10((Number(place.userRatingsTotal) || 0) + 1) * 2;
+  const distancePenalty = Number(place.distanceMeters || 0) / 1000 * 0.25;
+  const openBonus = place.openNow === true ? 1.5 : place.openNow === false ? -2 : 0;
+  return ratingScore + popularityScore + openBonus - distancePenalty;
+}
+
+async function searchPlacesByCategoryWithExpansion(
+  category,
+  {
+    targetCount = 5,
+    radii = [3200, 7000, 12000, 20000, 35000, 50000],
+  } = {}
+) {
+  if (!state.maps.ready || !state.maps.placesService || !state.location?.coords) {
+    return [];
+  }
+
+  const origin = new google.maps.LatLng(state.location.coords.lat, state.location.coords.lng);
+  const collected = [];
+  const seen = new Set();
+
+  for (const radius of radii) {
+    const results = await nearbySearch({
+      location: origin,
+      radius,
+      type: category,
+    });
+
+    for (const place of results.slice(0, 6)) {
+      if (!place?.place_id || seen.has(place.place_id)) {
+        continue;
+      }
+      seen.add(place.place_id);
+      const detail = await placeDetails(place.place_id);
+      const normalized = detail ? normalizePlace(detail, category) : null;
+      if (normalized) {
+        collected.push(normalized);
+      }
+    }
+
+    if (collected.length >= targetCount) {
+      break;
+    }
+  }
+
+  return collected
+    .sort((a, b) => scoreExpandedPlace(b) - scoreExpandedPlace(a))
+    .slice(0, targetCount);
+}
+
+function detectRequestedCategories(text) {
+  const source = String(text || "").toLowerCase();
+  const matches = [];
+
+  const categoryMatchers = [
+    ["museum", /\bmuseo|museos|museum|museums|galeria|galería|art[e]?|arte\b/],
+    ["restaurant", /\brestaurante|restaurantes|restaurant|restaurants|comida|food|cenar|dinner|almorz|lunch/],
+    ["cafe", /\bcafe|caf[eé]s|coffee|brunch|desayuno|breakfast/],
+    ["tourist_attraction", /\batraccion|atracción|atracciones|tourist|mirador|landmark|paseo|walk|walks|historia|history|cultural/],
+  ];
+
+  for (const [category, pattern] of categoryMatchers) {
+    if (pattern.test(source)) {
+      matches.push(category);
+    }
+  }
+
+  return [...new Set(matches)];
+}
+
+async function primeContextForRequest(userText) {
+  const requestedCategories = detectRequestedCategories(userText);
+  let updated = false;
+
+  for (const category of requestedCategories) {
+    const currentMatches = state.nearbyPlaces.filter((place) => place.category === category);
+    if (currentMatches.length >= 3) {
+      continue;
+    }
+
+    const expandedMatches = await searchPlacesByCategoryWithExpansion(category, { targetCount: 6 });
+    if (expandedMatches.length) {
+      mergeNearbyPlaces(expandedMatches);
+      updated = true;
+    }
+  }
+
+  if (updated && state.maps.ready) {
+    renderMarkers();
+  }
 }
 
 async function loadNearbyPlaces() {
@@ -2362,6 +2481,33 @@ ${savedPlan || "No saved activities yet."}
   `.trim();
 }
 
+function buildRequestScopedContext(userText, limit = 5) {
+  const requestedCategories = detectRequestedCategories(userText);
+  if (!requestedCategories.length) {
+    return "";
+  }
+
+  const categoryMatches = requestedCategories
+    .flatMap((category) => state.nearbyPlaces.filter((place) => place.category === category))
+    .filter((place, index, list) => list.findIndex((item) => item.id === place.id) === index)
+    .sort((a, b) => scoreExpandedPlace(b) - scoreExpandedPlace(a))
+    .slice(0, limit)
+    .map(summarizePlaceForAssistant)
+    .join("\n");
+
+  if (!categoryMatches) {
+    return `
+PLACES MATCHING THE TRAVELER REQUEST:
+No exact matches found yet even after expanding the search radius.
+    `.trim();
+  }
+
+  return `
+PLACES MATCHING THE TRAVELER REQUEST:
+${categoryMatches}
+  `.trim();
+}
+
 async function ensureFreshContext({ force = false } = {}) {
   const isStale = Date.now() - state.contextUpdatedAt > 180000;
   if (!force && !isStale && hasUsefulLiveContext()) {
@@ -2378,14 +2524,25 @@ async function ensureFreshContext({ force = false } = {}) {
 }
 
 function requestRealtimeResponseForTurn(userText = "") {
+  const requestScopedContext = buildRequestScopedContext(userText);
   updateRealtimeSession();
   sendRealtimeEvent({
     type: "response.create",
     response: {
       output_modalities: state.realtime.voiceEnabled ? ["audio", "text"] : ["text"],
-      instructions: `${buildTurnResponseInstructions(userText)}\n\n${buildLiveContextSnapshot(3)}`,
+      instructions: `${buildTurnResponseInstructions(userText)}\n\n${buildLiveContextSnapshot(3)}${
+        requestScopedContext ? `\n\n${requestScopedContext}` : ""
+      }`,
     },
   });
+}
+
+async function requestVoiceResponseFromTranscript(transcript) {
+  await ensureFreshContext();
+  await primeContextForRequest(transcript);
+  renderAll();
+  updateRealtimeSession();
+  requestRealtimeResponseForTurn(transcript);
 }
 
 function buildTurnResponseInstructions(userText = "") {
@@ -2401,6 +2558,7 @@ function buildTurnResponseInstructions(userText = "") {
     return `Use only the current live context for the traveler location in ${state.location?.country || "the current country"}.
 Call compose_itinerary before answering.
 Explain the order, travel time, estimated time at each stop, and why it fits the weather and the current position.
+If the traveler requests a specific kind of place and you do not see it in the short-radius context, call get_nearby_places with that category so the app can expand the search radius automatically.
 Do not mention another country, city, cuisine, or cultural reference unless it appears in the live context or the traveler asks for it.`;
   }
 
@@ -2409,6 +2567,7 @@ Do not mention another country, city, cuisine, or cultural reference unless it a
 Use the current traveler location, weather, nearby Google places, and saved plan.
 Mention at least two named places from the live context and explain why they fit right now.
 If nearby Google places are missing, say that clearly and ask the traveler to refresh context instead of improvising.
+If the traveler asks for a specific category such as museums, cafes, restaurants, or attractions and you do not have enough matching places, call get_nearby_places with that category to expand the search radius automatically.
 Do not mention another country, city, cuisine, or cultural reference unless it appears in the live context or the traveler asks for it.`;
   }
 
@@ -2480,7 +2639,7 @@ function buildRealtimeTools() {
     {
       type: "function",
       name: "get_nearby_places",
-      description: "List nearby places already loaded in the app, optionally filtered by category.",
+      description: "List nearby places, and if a requested category is missing nearby, expand the Google search radius automatically.",
       parameters: {
         type: "object",
         properties: {
@@ -2650,11 +2809,25 @@ async function handleToolCall(outputItem) {
       };
       break;
     case "get_nearby_places":
-      result = {
-        places: args.category
-          ? state.nearbyPlaces.filter((place) => place.category === args.category)
-          : state.nearbyPlaces,
-      };
+      if (args.category) {
+        let matchingPlaces = state.nearbyPlaces.filter((place) => place.category === args.category);
+        if (matchingPlaces.length < 3) {
+          const expandedMatches = await searchPlacesByCategoryWithExpansion(args.category, { targetCount: 6 });
+          if (expandedMatches.length) {
+            mergeNearbyPlaces(expandedMatches);
+            matchingPlaces = state.nearbyPlaces.filter((place) => place.category === args.category);
+          }
+        }
+        result = {
+          category: args.category,
+          places: matchingPlaces,
+          expanded_search: matchingPlaces.length > 0,
+        };
+      } else {
+        result = {
+          places: state.nearbyPlaces,
+        };
+      }
       break;
     case "get_route_to_place": {
       const route = await calculateRoute(args.place_id);
@@ -2727,11 +2900,6 @@ async function handleRealtimeEvent(raw) {
 
   if (event.type === "input_audio_buffer.speech_stopped") {
     clearPendingVoiceResponseTimer();
-    state.realtime.pendingVoiceResponseTimer = setTimeout(() => {
-      ensureFreshContext().catch(() => {}).finally(() => {
-        requestRealtimeResponseForTurn("");
-      });
-    }, 1200);
     setAssistantSpeaking(false);
     els.locationStatusText.textContent = state.realtime.micEnabled ? t("speechReady") : t("speechMuted");
     return;
@@ -2751,8 +2919,12 @@ async function handleRealtimeEvent(raw) {
       pushMessage("user", transcript);
     }
 
-    await ensureFreshContext();
-    requestRealtimeResponseForTurn(transcript);
+    if (!transcript) {
+      pushMessage("assistant", getVoiceRetryMessage());
+      return;
+    }
+
+    await requestVoiceResponseFromTranscript(transcript);
     return;
   }
 
@@ -3050,8 +3222,10 @@ function toggleVoice() {
 }
 
 function buildAssistantInputText(userText) {
+  const requestScopedContext = buildRequestScopedContext(userText);
   return `
 ${buildLiveContextSnapshot()}
+${requestScopedContext ? `\n\n${requestScopedContext}` : ""}
 
 TRAVELER REQUEST:
 ${String(userText || "").trim()}
@@ -3069,6 +3243,8 @@ async function sendTextToAssistant(text) {
   }
 
   await ensureFreshContext();
+  await primeContextForRequest(clean);
+  renderAll();
   updateRealtimeSession();
   pushMessage("user", clean);
   sendRealtimeEvent({
