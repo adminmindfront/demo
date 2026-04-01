@@ -89,57 +89,80 @@
     </div>
 
     <div class="shell">
-      <header class="hero">
-        <div class="hero__top">
-          <div class="brand">
-            <div class="brand__badge">AI</div>
-            <div class="brand__meta">
-              <strong id="brandTitle"></strong>
-              <span id="brandSubtitle"></span>
-            </div>
-          </div>
-
-          <div class="hero__controls">
-            <div class="account-pill" id="accountPill"></div>
-            <button class="pill-button" id="authLogoutBtn" type="button"></button>
-            <button class="pill-button" id="changeLanguageBtn" type="button"></button>
-            <button class="pill-button" id="locateBtn" type="button"></button>
-            <button class="pill-button" id="refreshBtn" type="button"></button>
+      <header class="topbar">
+        <div class="brand brand--compact">
+          <div class="brand__badge">AI</div>
+          <div class="brand__meta">
+            <strong id="brandTitle"></strong>
+            <span id="brandSubtitle"></span>
           </div>
         </div>
 
-        <div class="hero__body">
-          <div>
-            <div class="hero__eyebrow" id="heroEyebrow"></div>
-            <h1 class="hero__title" id="heroTitle"></h1>
-            <p class="hero__subtitle" id="heroSubtitle"></p>
-            <div class="hero__pills">
-              <div class="hero-pill" id="locationPill"></div>
-              <div class="hero-pill" id="weatherPill"></div>
-              <div class="hero-pill" id="planPill"></div>
-            </div>
-          </div>
-
-          <div class="hero__stack">
-            <article class="hero__suggestion">
-              <h2 id="suggestionHeading"></h2>
-              <p id="suggestionText"></p>
-            </article>
-            <article class="hero-note">
-              <strong id="assistantPreviewHeading"></strong>
-              <span id="assistantPreviewText"></span>
-            </article>
-            <article class="hero-note">
-              <strong id="keysHeading"></strong>
-              <span id="keysText"></span>
-            </article>
-          </div>
+        <div class="topbar__actions">
+          <div class="weather-compact" id="weatherCompact"></div>
+          <button class="flag-button" id="languageQuickBtn" type="button" aria-label="Language"></button>
+          <button class="menu-button" id="menuToggleBtn" type="button" aria-label="Menu" aria-expanded="false">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
         </div>
       </header>
 
+      <aside class="menu-drawer" id="menuDrawer" aria-hidden="true">
+        <div class="menu-drawer__head">
+          <strong id="menuTitle">Menu</strong>
+          <button class="menu-drawer__close" id="menuCloseBtn" type="button" aria-label="Close">&times;</button>
+        </div>
+        <div class="account-pill account-pill--menu" id="accountPill"></div>
+        <button class="menu-item" id="changeLanguageBtn" type="button"></button>
+        <button class="menu-item" id="authLogoutBtn" type="button"></button>
+      </aside>
+      <button class="menu-backdrop" id="menuBackdrop" type="button" aria-label="Close menu"></button>
+
+      <nav class="section-nav" id="sectionNav" aria-label="Sections">
+        <button class="section-nav__btn" id="mapSectionBtn" type="button" data-section-switch="map" title="Mapa y trayectos" aria-label="Mapa y trayectos">
+          <img src="./assets/img/ubicaciones.png" alt="" />
+        </button>
+        <button class="section-nav__btn" id="nearbySectionBtn" type="button" data-section-switch="nearby" title="Actividades sugeridas" aria-label="Actividades sugeridas">
+          <img src="./assets/img/actividad.png" alt="" />
+        </button>
+        <button class="section-nav__btn" id="planSectionBtn" type="button" data-section-switch="plan" title="Plan viajero" aria-label="Plan viajero">
+          <img src="./assets/img/plan.png" alt="" />
+        </button>
+      </nav>
+
+      <section class="hero hero--compact">
+        <div class="hero__copy">
+          <div class="hero__eyebrow" id="heroEyebrow"></div>
+          <h1 class="hero__title" id="heroTitle"></h1>
+          <p class="hero__subtitle" id="heroSubtitle"></p>
+        </div>
+        <button class="action-button action-button--primary hero__cta" id="suggestionBtn" type="button"></button>
+        <article class="hero__suggestion hero__suggestion--compact">
+          <h2 id="suggestionHeading"></h2>
+          <p id="suggestionText"></p>
+        </article>
+        <div class="hero__pills hero__pills--hidden" aria-hidden="true">
+          <div class="hero-pill" id="locationPill"></div>
+          <div class="hero-pill" id="weatherPill"></div>
+          <div class="hero-pill" id="planPill"></div>
+        </div>
+        <div class="hero__stack hero__stack--hidden" aria-hidden="true">
+          <article class="hero-note">
+            <strong id="assistantPreviewHeading"></strong>
+            <span id="assistantPreviewText"></span>
+          </article>
+          <article class="hero-note">
+            <strong id="keysHeading"></strong>
+            <span id="keysText"></span>
+          </article>
+        </div>
+      </section>
+
       <main class="layout">
         <div class="main-column">
-          <section class="panel accordion-panel" id="overviewAccordion">
+          <section class="panel accordion-panel system-context" id="overviewAccordion">
             <button class="accordion-toggle" type="button" data-accordion-toggle="overview">
               <div>
                 <strong id="overviewAccordionTitle"></strong>
@@ -170,8 +193,88 @@
             </div>
           </section>
 
-          <section class="panel accordion-panel" id="mapAccordion">
-            <button class="accordion-toggle" type="button" data-accordion-toggle="map">
+          <aside class="assistant assistant-column">
+            <div class="assistant__head sr-only">
+              <div>
+                <h2 class="assistant__title" id="assistantTitle"></h2>
+                <p class="assistant__subtitle" id="assistantSubtitle"></p>
+              </div>
+            </div>
+
+            <div class="assistant__controls legacy-hidden">
+              <button class="action-button action-button--primary" id="connectBtn" type="button"></button>
+              <button class="action-button" id="disconnectBtn" type="button"></button>
+              <button class="action-button" id="contextBtn" type="button"></button>
+            </div>
+
+            <div class="assistant__toggles legacy-hidden">
+              <button class="tiny-button" id="micBtn" type="button"></button>
+              <button class="tiny-button" id="voiceBtn" type="button"></button>
+            </div>
+
+            <div class="assistant__status legacy-hidden">
+              <div class="status-pill" id="connectionStatus">
+                <span class="status-pill__dot"></span>
+                <span id="connectionStatusText"></span>
+              </div>
+              <div class="status-pill" id="locationStatus">
+                <span class="status-pill__dot"></span>
+                <span id="locationStatusText"></span>
+              </div>
+            </div>
+
+            <div class="assistant__notice" id="assistantNotice"></div>
+
+            <div class="assistant-mode" id="assistantModeTabs">
+              <button class="tiny-button" id="voiceModeBtn" type="button" data-assistant-mode="voice"></button>
+              <button class="tiny-button" id="textModeBtn" type="button" data-assistant-mode="text"></button>
+            </div>
+
+            <section class="assistant-voice-pane" id="assistantVoicePane">
+              <div class="voice-visual" id="voiceVisual">
+                <dotlottie-wc
+                  src="https://lottie.host/be7fe30e-a691-40a0-bdf9-5e175b47240a/yisXA4hHrg.lottie"
+                  style="width: 300px; height: 300px"
+                  autoplay
+                  loop
+                ></dotlottie-wc>
+              </div>
+              <div class="voice-copy">
+                <strong id="voiceVisualizerTitle"></strong>
+                <p id="voiceVisualizerHint"></p>
+              </div>
+              <button class="action-button action-button--primary voice-action" id="voiceSessionBtn" type="button"></button>
+            </section>
+
+            <section class="assistant-text-pane" id="assistantTextPane">
+              <section class="thread-panel">
+                <div class="thread-panel__head">
+                  <div>
+                    <strong id="chatsHeading"></strong>
+                    <p id="chatsHint"></p>
+                  </div>
+                  <button class="tiny-button" id="newChatBtn" type="button"></button>
+                </div>
+                <div class="thread-list" id="threadList"></div>
+              </section>
+
+              <div class="chat-quick legacy-hidden" id="quickPrompts"></div>
+              <div class="chat-shell">
+                <div class="chat-log" id="chatLog"></div>
+
+                <form class="chat-form" id="chatForm">
+                  <textarea id="chatInput"></textarea>
+                  <div class="chat-form__actions">
+                    <div class="helper-row legacy-hidden" id="helperRow"></div>
+                    <button class="action-button action-button--warm" type="submit" id="sendBtn"></button>
+                  </div>
+                </form>
+              </div>
+            </section>
+          </aside>
+
+          <section class="panel accordion-panel section-panel" id="mapAccordion" data-section-panel="map">
+            <button class="accordion-toggle legacy-hidden" type="button" data-accordion-toggle="map">
               <div>
                 <strong id="mapAccordionTitle"></strong>
                 <span id="mapAccordionHint"></span>
@@ -192,8 +295,8 @@
             </div>
           </section>
 
-          <section class="panel accordion-panel" id="nearbyAccordion">
-            <button class="accordion-toggle" type="button" data-accordion-toggle="nearby">
+          <section class="panel accordion-panel section-panel" id="nearbyAccordion" data-section-panel="nearby">
+            <button class="accordion-toggle legacy-hidden" type="button" data-accordion-toggle="nearby">
               <div>
                 <strong id="nearbyAccordionTitle"></strong>
                 <span id="nearbyAccordionHint"></span>
@@ -211,8 +314,8 @@
             </div>
           </section>
 
-          <section class="panel accordion-panel" id="planAccordion">
-            <button class="accordion-toggle" type="button" data-accordion-toggle="plan">
+          <section class="panel accordion-panel section-panel" id="planAccordion" data-section-panel="plan">
+            <button class="accordion-toggle legacy-hidden" type="button" data-accordion-toggle="plan">
               <div>
                 <strong id="planAccordionTitle"></strong>
                 <span id="planAccordionHint"></span>
@@ -227,90 +330,49 @@
                 </div>
               </div>
               <div class="plan-grid" id="planGrid"></div>
+              <div class="plan-actions">
+                <button class="action-button action-button--primary" id="openPlanBuilderBtn" type="button"></button>
+              </div>
+              <div class="generated-plan" id="generatedPlan"></div>
             </div>
           </section>
         </div>
-
-        <aside class="assistant assistant-column">
-          <div>
-            <div class="assistant__head">
-              <div>
-                <h2 class="assistant__title" id="assistantTitle"></h2>
-                <p class="assistant__subtitle" id="assistantSubtitle"></p>
-              </div>
-            </div>
-
-            <div class="assistant__controls">
-              <button class="action-button action-button--primary" id="connectBtn" type="button"></button>
-              <button class="action-button" id="disconnectBtn" type="button"></button>
-              <button class="action-button" id="contextBtn" type="button"></button>
-            </div>
-
-            <div class="assistant__toggles">
-              <button class="tiny-button" id="micBtn" type="button"></button>
-              <button class="tiny-button" id="voiceBtn" type="button"></button>
-            </div>
-
-            <div class="assistant__status">
-              <div class="status-pill" id="connectionStatus">
-                <span class="status-pill__dot"></span>
-                <span id="connectionStatusText"></span>
-              </div>
-              <div class="status-pill" id="locationStatus">
-                <span class="status-pill__dot"></span>
-                <span id="locationStatusText"></span>
-              </div>
-            </div>
-
-            <div class="assistant__notice" id="assistantNotice"></div>
-          </div>
-
-          <div class="assistant-mode" id="assistantModeTabs">
-            <button class="tiny-button" id="voiceModeBtn" type="button" data-assistant-mode="voice"></button>
-            <button class="tiny-button" id="textModeBtn" type="button" data-assistant-mode="text"></button>
-          </div>
-
-          <section class="assistant-voice-pane" id="assistantVoicePane">
-            <div class="voice-visual" id="voiceVisual">
-              <dotlottie-wc
-                src="https://lottie.host/be7fe30e-a691-40a0-bdf9-5e175b47240a/yisXA4hHrg.lottie"
-                style="width: 300px; height: 300px"
-                autoplay
-                loop
-              ></dotlottie-wc>
-            </div>
-            <div class="voice-copy">
-              <strong id="voiceVisualizerTitle"></strong>
-              <p id="voiceVisualizerHint"></p>
-            </div>
-          </section>
-
-          <section class="assistant-text-pane" id="assistantTextPane">
-            <section class="thread-panel">
-              <div class="thread-panel__head">
-                <div>
-                  <strong id="chatsHeading"></strong>
-                  <p id="chatsHint"></p>
-                </div>
-                <button class="tiny-button" id="newChatBtn" type="button"></button>
-              </div>
-              <div class="thread-list" id="threadList"></div>
-            </section>
-
-            <div class="chat-quick" id="quickPrompts"></div>
-            <div class="chat-log" id="chatLog"></div>
-
-            <form class="chat-form" id="chatForm">
-              <textarea id="chatInput"></textarea>
-              <div class="chat-form__actions">
-                <div class="helper-row" id="helperRow"></div>
-                <button class="action-button action-button--warm" type="submit" id="sendBtn"></button>
-              </div>
-            </form>
-          </section>
-        </aside>
       </main>
     </div>
+
+    <div class="plan-builder-sheet" id="planBuilderSheet">
+      <section class="plan-builder-card">
+        <div class="plan-builder-card__head">
+          <div>
+            <strong id="planBuilderTitle"></strong>
+            <span id="planBuilderHint"></span>
+          </div>
+          <button class="plan-builder-card__close" id="planBuilderCloseBtn" type="button" aria-label="Close">&times;</button>
+        </div>
+
+        <form class="plan-builder-form" id="planBuilderForm">
+          <label class="auth-field">
+            <span id="planNameLabel"></span>
+            <input id="planNameInput" type="text" maxlength="80" />
+          </label>
+          <label class="auth-field">
+            <span id="planDateLabel"></span>
+            <input id="planDateInput" type="date" required />
+          </label>
+          <label class="auth-field">
+            <span id="planStartTimeLabel"></span>
+            <input id="planStartTimeInput" type="time" required />
+          </label>
+          <div class="plan-builder-form__actions">
+            <button class="action-button" id="planBuilderCancelBtn" type="button"></button>
+            <button class="action-button action-button--primary" id="planBuilderSubmitBtn" type="submit"></button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <button class="legacy-hidden" id="locateBtn" type="button"></button>
+    <button class="legacy-hidden" id="refreshBtn" type="button"></button>
 
     <audio id="remoteAudio" autoplay></audio>
 

@@ -22,13 +22,14 @@ import {
   set,
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const GOOGLE_API_KEY = "AIzaSyAQMIAQGfVignXGUO_IUkwWpoKqX77OaaI"; 
+const GOOGLE_API_KEY = "AIzaSyAQMIAQGfVignXGUO_IUkwWpoKqX77OaaI";
 const OPENAI_API_KEY = "Openai Apikey";
-const OPENAI_TOKEN_ENDPOINT = "https://ia-780373663877.us-central1.run.app";
-const EXPERIENCE_VERSION = "20260331h";
+const OPENAI_TOKEN_ENDPOINT = "https://ia-641197532873.us-central1.run.app";
+const EXPERIENCE_VERSION = "20260401a";
 const LOCAL_LANGUAGE_KEY = "travel-language";
 const LOCAL_LANGUAGE_CONFIRMED_KEY = "travel-language-confirmed";
 const LOCAL_PLAN_KEY = "travel-plan";
+const LOCAL_GENERATED_PLAN_KEY = "travel-generated-plan";
 const DEFAULT_CHAT_LIMIT = 30;
 const DEFAULT_MEMORY_SUMMARY =
   "Not enough stable traveler preferences yet. Start with brief questions about style, budget, and companions.";
@@ -342,6 +343,69 @@ const EXTRA_UI = {
   },
 };
 
+const MICRO_UI = {
+  es: {
+    compactHeroTitle: "Planea tu visita con IA",
+    suggestionButton: "Dame una sugerencia",
+    suggestionHeadingCompact: "Sugerencia lista",
+    menuTitle: "Tu cuenta",
+    voiceStart: "Iniciar",
+    voiceStop: "Parar",
+    planCreateButton: "Crear plan",
+    planBuilderTitle: "Arma tu plan del dia",
+    planBuilderHint: "Ponle nombre, dia y hora de inicio para calcular tiempos, traslados y horarios reales.",
+    planNameLabel: "Nombre del plan",
+    planDateLabel: "Dia",
+    planStartTimeLabel: "Hora de inicio",
+    planNamePlaceholder: "Ej. Museos y cafe",
+    planBuilderCancel: "Cancelar",
+    planBuilderSubmit: "Crear plan",
+    generatedPlanEmpty: "Cuando armes tu plan, aqui veras horarios, traslados y alertas de apertura.",
+    generatedPlanOrigin: "Desde tu ubicacion actual",
+    trafficLow: "Sin trafico relevante",
+    trafficMedium: "Poco trafico",
+    trafficHigh: "Mucho trafico",
+    hoursOk: "Abierto para esta visita",
+    hoursWarn: "Ojo con el horario",
+    hoursClosed: "Cerrado en ese horario",
+    hoursUnknown: "Horario por confirmar",
+    suggestionPrompt:
+      "Dame una sugerencia concreta con base en mi ubicacion, clima y lugares cercanos. Incluye 2 o 3 actividades reales y preguntame si quiero agregarlas a mi plan.",
+    generatedPlanSummary: "Plan calculado",
+    reorderHint: "Arrastra para ordenar",
+  },
+  en: {
+    compactHeroTitle: "Plan your visit with AI",
+    suggestionButton: "Give me a suggestion",
+    suggestionHeadingCompact: "Ready suggestion",
+    menuTitle: "Your account",
+    voiceStart: "Start",
+    voiceStop: "Stop",
+    planCreateButton: "Create plan",
+    planBuilderTitle: "Build your day plan",
+    planBuilderHint: "Add a name, day, and start time so we can calculate timing, transfers, and opening hours.",
+    planNameLabel: "Plan name",
+    planDateLabel: "Day",
+    planStartTimeLabel: "Start time",
+    planNamePlaceholder: "Ex. Museums and coffee",
+    planBuilderCancel: "Cancel",
+    planBuilderSubmit: "Create plan",
+    generatedPlanEmpty: "Once you build your plan, timings, transfers, and opening alerts will appear here.",
+    generatedPlanOrigin: "From your current location",
+    trafficLow: "No relevant traffic",
+    trafficMedium: "Light traffic",
+    trafficHigh: "Heavy traffic",
+    hoursOk: "Open for this visit",
+    hoursWarn: "Check the schedule",
+    hoursClosed: "Closed at that time",
+    hoursUnknown: "Hours still unknown",
+    suggestionPrompt:
+      "Give me a concrete suggestion based on my current location, weather, and nearby places. Include 2 or 3 real activities and ask whether I want to add them to my plan.",
+    generatedPlanSummary: "Planned route",
+    reorderHint: "Drag to reorder",
+  },
+};
+
 const DEFAULT_SETTINGS = {
   language: localStorage.getItem(LOCAL_LANGUAGE_KEY) || "es",
   travelMode: "WALKING",
@@ -376,6 +440,11 @@ const state = {
   authError: "",
   isAuthSubmitting: false,
   assistantMode: DEFAULT_SETTINGS.assistantMode,
+  activeSection: "nearby",
+  menuOpen: false,
+  planBuilderOpen: false,
+  generatedPlan: loadGeneratedPlan(),
+  planDragId: null,
   accordions: {
     overview: true,
     map: false,
@@ -415,6 +484,7 @@ const state = {
 let persistTimer = null;
 let memoryTimer = null;
 let refreshContextPromise = null;
+let contextRefreshInterval = null;
 
 const els = {
   languageGate: document.getElementById("languageGate"),
@@ -448,6 +518,15 @@ const els = {
   authLegal: document.getElementById("authLegal"),
   brandTitle: document.getElementById("brandTitle"),
   brandSubtitle: document.getElementById("brandSubtitle"),
+  weatherCompact: document.getElementById("weatherCompact"),
+  languageQuickBtn: document.getElementById("languageQuickBtn"),
+  menuToggleBtn: document.getElementById("menuToggleBtn"),
+  menuDrawer: document.getElementById("menuDrawer"),
+  menuBackdrop: document.getElementById("menuBackdrop"),
+  menuCloseBtn: document.getElementById("menuCloseBtn"),
+  mapSectionBtn: document.getElementById("mapSectionBtn"),
+  nearbySectionBtn: document.getElementById("nearbySectionBtn"),
+  planSectionBtn: document.getElementById("planSectionBtn"),
   accountPill: document.getElementById("accountPill"),
   authLogoutBtn: document.getElementById("authLogoutBtn"),
   changeLanguageBtn: document.getElementById("changeLanguageBtn"),
@@ -500,6 +579,8 @@ const els = {
   planTitle: document.getElementById("planTitle"),
   planSubtitle: document.getElementById("planSubtitle"),
   planGrid: document.getElementById("planGrid"),
+  openPlanBuilderBtn: document.getElementById("openPlanBuilderBtn"),
+  generatedPlan: document.getElementById("generatedPlan"),
   assistantTitle: document.getElementById("assistantTitle"),
   assistantSubtitle: document.getElementById("assistantSubtitle"),
   connectBtn: document.getElementById("connectBtn"),
@@ -519,6 +600,7 @@ const els = {
   voiceVisual: document.getElementById("voiceVisual"),
   voiceVisualizerTitle: document.getElementById("voiceVisualizerTitle"),
   voiceVisualizerHint: document.getElementById("voiceVisualizerHint"),
+  voiceSessionBtn: document.getElementById("voiceSessionBtn"),
   chatsHeading: document.getElementById("chatsHeading"),
   chatsHint: document.getElementById("chatsHint"),
   newChatBtn: document.getElementById("newChatBtn"),
@@ -529,6 +611,20 @@ const els = {
   chatInput: document.getElementById("chatInput"),
   helperRow: document.getElementById("helperRow"),
   sendBtn: document.getElementById("sendBtn"),
+  suggestionBtn: document.getElementById("suggestionBtn"),
+  planBuilderSheet: document.getElementById("planBuilderSheet"),
+  planBuilderTitle: document.getElementById("planBuilderTitle"),
+  planBuilderHint: document.getElementById("planBuilderHint"),
+  planBuilderCloseBtn: document.getElementById("planBuilderCloseBtn"),
+  planBuilderForm: document.getElementById("planBuilderForm"),
+  planNameLabel: document.getElementById("planNameLabel"),
+  planNameInput: document.getElementById("planNameInput"),
+  planDateLabel: document.getElementById("planDateLabel"),
+  planDateInput: document.getElementById("planDateInput"),
+  planStartTimeLabel: document.getElementById("planStartTimeLabel"),
+  planStartTimeInput: document.getElementById("planStartTimeInput"),
+  planBuilderCancelBtn: document.getElementById("planBuilderCancelBtn"),
+  planBuilderSubmitBtn: document.getElementById("planBuilderSubmitBtn"),
   remoteAudio: document.getElementById("remoteAudio"),
 };
 
@@ -545,11 +641,34 @@ function savePlan() {
   localStorage.setItem(LOCAL_PLAN_KEY, JSON.stringify(state.plan));
 }
 
+function loadGeneratedPlan() {
+  try {
+    const raw = localStorage.getItem(LOCAL_GENERATED_PLAN_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveGeneratedPlan() {
+  if (state.generatedPlan) {
+    localStorage.setItem(LOCAL_GENERATED_PLAN_KEY, JSON.stringify(state.generatedPlan));
+    return;
+  }
+  localStorage.removeItem(LOCAL_GENERATED_PLAN_KEY);
+}
+
 function t(key) {
   return EXTRA_UI[state.language]?.[key]
     || UI[state.language]?.[key]
     || EXTRA_UI.en[key]
     || UI.en?.[key]
+    || key;
+}
+
+function micro(key) {
+  return MICRO_UI[state.language]?.[key]
+    || MICRO_UI.en[key]
     || key;
 }
 
@@ -669,7 +788,15 @@ function weatherLabel(code) {
 }
 
 function formatTemperature(value) {
-  return Number.isFinite(value) ? `${Math.round(value)}°C` : "--";
+  if (!Number.isFinite(value)) {
+    return "--";
+  }
+
+  if (state.language === "en") {
+    return `${Math.round((value * 9) / 5 + 32)}°F`;
+  }
+
+  return `${Math.round(value)}°C`;
 }
 
 function formatPriceLevel(level) {
@@ -684,6 +811,47 @@ function formatDateTime(date = new Date()) {
     dateStyle: "full",
     timeStyle: "short",
   }).format(date);
+}
+
+function formatTimeOnly(date) {
+  return new Intl.DateTimeFormat(state.language, {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function formatDayOnly(value) {
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) {
+    return String(value || "");
+  }
+  return new Intl.DateTimeFormat(state.language, {
+    dateStyle: "full",
+  }).format(date);
+}
+
+function weatherGlyph(code) {
+  const family = WEATHER_CODES[code] || "clear";
+  if (["rain", "drizzle", "showers"].includes(family)) return "🌧";
+  if (family === "storm") return "⛈";
+  if (family === "snow") return "❄";
+  if (["cloudy", "partlyCloudy", "mostlyClear", "fog"].includes(family)) return "☁";
+  return "☀";
+}
+
+function normalizeTextSearch(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function getTodayIso(offsetDays = 0) {
+  const date = new Date();
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + offsetDays);
+  return date.toISOString().slice(0, 10);
 }
 
 function escapeHtml(value) {
@@ -861,6 +1029,7 @@ function getTravelerPayload() {
       assistantMode: state.assistantMode,
     },
     plan: state.plan,
+    generatedPlan: state.generatedPlan,
     chats: state.chats,
     activeChatId: state.activeChatId,
     memorySummary: state.memorySummary,
@@ -870,6 +1039,7 @@ function getTravelerPayload() {
 async function persistTravelerData() {
   if (!state.user?.uid) {
     savePlan();
+    saveGeneratedPlan();
     localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
     return;
   }
@@ -891,6 +1061,37 @@ function schedulePersist() {
 function findPlace(placeId) {
   return state.nearbyPlaces.find((place) => place.id === placeId)
     || state.plan.find((place) => place.id === placeId);
+}
+
+function findPlaceByName(placeName) {
+  const query = normalizeTextSearch(placeName);
+  if (!query) {
+    return null;
+  }
+
+  const pool = [...state.nearbyPlaces, ...state.plan];
+  let bestPlace = null;
+  let bestScore = Number.NEGATIVE_INFINITY;
+
+  for (const place of pool) {
+    const name = normalizeTextSearch(place?.name);
+    if (!name) {
+      continue;
+    }
+
+    let score = 0;
+    if (name === query) score += 10;
+    if (name.includes(query) || query.includes(name)) score += 6;
+    if (normalizeTextSearch(place.address).includes(query)) score += 2;
+    score += scorePlaceForMoment(place) * 0.1;
+
+    if (score > bestScore) {
+      bestScore = score;
+      bestPlace = place;
+    }
+  }
+
+  return bestScore >= 3 ? bestPlace : null;
 }
 
 function toRadians(value) {
@@ -1509,12 +1710,16 @@ function renderHero() {
   els.authLogoutBtn.textContent = t("logout");
   els.authLogoutBtn.style.display = state.user ? "inline-flex" : "none";
   els.changeLanguageBtn.textContent = `${lang.flag} ${t("changeLanguage")}`;
+  els.languageQuickBtn.textContent = lang.flag;
+  els.languageQuickBtn.title = t("changeLanguage");
+  els.languageQuickBtn.setAttribute("aria-label", t("changeLanguage"));
   els.locateBtn.textContent = t("locate");
   els.refreshBtn.textContent = t("refresh");
-  els.heroEyebrow.textContent = `✦ ${t("heroEyebrow")}`;
-  els.heroTitle.textContent = t("heroTitle");
+  els.heroEyebrow.textContent = `* ${t("heroEyebrow")}`;
+  els.heroTitle.textContent = micro("compactHeroTitle");
   els.heroSubtitle.textContent = t("heroSubtitle");
-  els.suggestionHeading.textContent = t("suggestionHeading");
+  els.suggestionBtn.textContent = micro("suggestionButton");
+  els.suggestionHeading.textContent = micro("suggestionHeadingCompact");
   els.suggestionText.textContent = state.quickSuggestion || t("fallbackGreeting");
   els.assistantPreviewHeading.textContent = t("assistantPreviewHeading");
   els.assistantPreviewText.textContent = t("assistantPreviewText");
@@ -1529,6 +1734,9 @@ function renderHero() {
       : t("weatherLoading")
   }`;
   els.planPill.textContent = `${t("planPill")}: ${state.plan.length} ${t("planCount")}`;
+  els.weatherCompact.innerHTML = state.weather
+    ? `<span class="weather-compact__icon">${weatherGlyph(state.weather.current_weather.weathercode)}</span><span>${escapeHtml(formatTemperature(state.weather.current_weather.temperature))}</span>`
+    : `<span class="weather-compact__icon">--</span><span>${escapeHtml(t("weatherLoading"))}</span>`;
 }
 
 function renderSummaryCards() {
@@ -1551,6 +1759,37 @@ function renderSummaryCards() {
   els.timingCardHint.textContent = state.plan.length > 0
     ? `${state.plan.length} ${t("planCount")}`
     : t("starterQuestion");
+}
+
+function renderSectionNav() {
+  const buttons = [
+    ["map", els.mapSectionBtn, t("mapTitle")],
+    ["nearby", els.nearbySectionBtn, t("nearbyTitle")],
+    ["plan", els.planSectionBtn, t("planTitle")],
+  ];
+
+  buttons.forEach(([section, button, label]) => {
+    if (!button) {
+      return;
+    }
+    button.title = label;
+    button.setAttribute("aria-label", label);
+    button.classList.toggle("is-active", state.activeSection === section);
+  });
+}
+
+function renderSectionPanels() {
+  [els.mapAccordion, els.nearbyAccordion, els.planAccordion].forEach((panel) => {
+    if (!panel) {
+      return;
+    }
+    panel.classList.toggle("is-active", panel.dataset.sectionPanel === state.activeSection);
+  });
+
+  els.menuDrawer.classList.toggle("is-open", state.menuOpen);
+  els.menuBackdrop.classList.toggle("is-open", state.menuOpen);
+  els.menuDrawer.setAttribute("aria-hidden", state.menuOpen ? "false" : "true");
+  els.menuToggleBtn.setAttribute("aria-expanded", state.menuOpen ? "true" : "false");
 }
 
 function renderNearby() {
@@ -1602,19 +1841,74 @@ function renderNearby() {
     .join("");
 }
 
+function renderGeneratedPlan() {
+  if (!state.generatedPlan?.items?.length) {
+    els.generatedPlan.innerHTML = `<div class="empty-state">${escapeHtml(micro("generatedPlanEmpty"))}</div>`;
+    return;
+  }
+
+  const builtPlan = state.generatedPlan;
+  els.generatedPlan.innerHTML = `
+    <article class="generated-plan__header">
+      <strong>${escapeHtml(builtPlan.name)}</strong>
+      <span>${escapeHtml(`${formatDayOnly(builtPlan.date)} · ${builtPlan.travelMode}`)}</span>
+      <p>${escapeHtml(`${micro("generatedPlanSummary")}: ${builtPlan.summary}`)}</p>
+    </article>
+    ${builtPlan.items
+      .map((item, index) => `
+        <div class="generated-plan__segment">
+          <strong>${escapeHtml(
+            `${index === 0 ? micro("generatedPlanOrigin") : item.routeFromPrevious.originLabel} → ${item.name}`
+          )}</strong>
+          <span>${escapeHtml(
+            [item.routeFromPrevious.durationText, item.routeFromPrevious.distanceText].filter(Boolean).join(" · ")
+          )}</span>
+          <span class="generated-plan__traffic generated-plan__traffic--${escapeHtml(item.routeFromPrevious.trafficColor)}">
+            ${escapeHtml(item.routeFromPrevious.trafficLabel)}
+          </span>
+        </div>
+        <article class="generated-plan__card">
+          <div class="generated-plan__body">
+            <h3 class="generated-plan__title">${escapeHtml(item.name)}</h3>
+            <div class="generated-plan__times">
+              <span class="generated-plan__time">${escapeHtml(`${item.startLabel} - ${item.endLabel}`)}</span>
+              <span class="generated-plan__time">${escapeHtml(item.visitText)}</span>
+            </div>
+            <p>${escapeHtml(item.address || "")}</p>
+            <span class="generated-plan__status generated-plan__status--${escapeHtml(item.availability.tone)}">
+              ${escapeHtml(item.availability.label)}
+            </span>
+            ${item.availability.detail ? `<p>${escapeHtml(item.availability.detail)}</p>` : ""}
+            <div class="card-actions">
+              ${item.mapsUrl ? `<button class="action-button" type="button" data-open-generated-place="${escapeHtml(item.placeId)}">${escapeHtml(t("openMaps"))}</button>` : ""}
+            </div>
+          </div>
+        </article>
+      `)
+      .join("")}
+  `;
+}
+
 function renderPlan() {
   els.planTitle.textContent = t("planTitle");
   els.planSubtitle.textContent = t("planSubtitle");
+  els.openPlanBuilderBtn.textContent = micro("planCreateButton");
+  els.openPlanBuilderBtn.disabled = !state.plan.length;
 
   if (!state.plan.length) {
     els.planGrid.innerHTML = `<div class="empty-state">${escapeHtml(t("emptyPlan"))}</div>`;
+    renderGeneratedPlan();
     return;
   }
 
   els.planGrid.innerHTML = state.plan
-    .map((place) => `
-      <article class="plan-card">
+    .map((place, index) => `
+      <article class="plan-card" draggable="true" data-plan-drag="${place.id}">
         <div class="plan-card__body">
+          <div class="plan-card__top">
+            <span class="plan-card__order">${index + 1}</span>
+            <button class="plan-card__drag" type="button" title="${escapeHtml(micro("reorderHint"))}">↕</button>
+          </div>
           <h3 class="plan-card__title">${escapeHtml(place.name)}</h3>
           <div class="plan-card__meta">
             <span class="mini-tag">${escapeHtml(t("placeTypes")[place.category] || place.category)}</span>
@@ -1630,6 +1924,7 @@ function renderPlan() {
       </article>
     `)
     .join("");
+  renderGeneratedPlan();
 }
 
 function renderAssistant() {
@@ -1655,6 +1950,9 @@ function renderAssistant() {
   els.contextBtn.textContent = t("refreshContext");
   els.micBtn.textContent = state.realtime.micEnabled ? t("micOn") : t("micOff");
   els.voiceBtn.textContent = state.realtime.voiceEnabled ? t("voiceOn") : t("voiceOff");
+  els.voiceSessionBtn.textContent = state.realtime.connected || state.realtime.connecting
+    ? micro("voiceStop")
+    : micro("voiceStart");
   els.connectionStatus.classList.toggle("is-live", state.realtime.connected);
   els.connectionStatusText.textContent = state.realtime.connected ? t("online") : t("offline");
   els.locationStatusText.textContent = state.realtime.connected
@@ -1663,13 +1961,14 @@ function renderAssistant() {
   els.assistantNotice.textContent = !state.user
     ? t("loginRequired")
     : hasRealtimeAuth()
-      ? `${t("assistantNotice")} ${t("savedLabel")}.`
+      ? ""
       : t("openaiMissing");
   els.chatInput.placeholder = t("placeholder");
   els.sendBtn.textContent = t("send");
   els.disconnectBtn.disabled = !state.realtime.connected && !state.realtime.connecting;
   els.connectBtn.disabled = !state.user || state.realtime.connected || state.realtime.connecting;
   els.contextBtn.disabled = !state.user || !state.realtime.connected;
+  els.voiceSessionBtn.disabled = !state.user || !hasRealtimeAuth();
   els.voiceModeBtn.disabled = !state.user;
   els.textModeBtn.disabled = !state.user;
   els.chatInput.disabled = !state.user;
@@ -1712,9 +2011,7 @@ function renderChat() {
     els.chatLog.innerHTML = `<div class="empty-state">${escapeHtml(
       !state.user
         ? t("loginRequired")
-        : state.realtime.connected
-          ? t("starterQuestion")
-          : t("assistantNotice")
+        : t("starterQuestion")
     )}</div>`;
     return;
   }
@@ -1732,6 +2029,28 @@ function renderChat() {
   els.chatLog.scrollTop = els.chatLog.scrollHeight;
 }
 
+function renderPlanBuilder() {
+  els.planBuilderTitle.textContent = micro("planBuilderTitle");
+  els.planBuilderHint.textContent = micro("planBuilderHint");
+  els.planNameLabel.textContent = micro("planNameLabel");
+  els.planDateLabel.textContent = micro("planDateLabel");
+  els.planStartTimeLabel.textContent = micro("planStartTimeLabel");
+  els.planNameInput.placeholder = micro("planNamePlaceholder");
+  els.planBuilderCancelBtn.textContent = micro("planBuilderCancel");
+  els.planBuilderSubmitBtn.textContent = micro("planBuilderSubmit");
+  els.planBuilderSheet.classList.toggle("is-open", state.planBuilderOpen);
+
+  if (!els.planDateInput.value) {
+    els.planDateInput.value = state.generatedPlan?.date || getTodayIso();
+  }
+  if (!els.planStartTimeInput.value) {
+    els.planStartTimeInput.value = state.generatedPlan?.startTime || "10:00";
+  }
+  if (!els.planNameInput.value) {
+    els.planNameInput.value = state.generatedPlan?.name || "";
+  }
+}
+
 function renderMap() {
   els.mapTitle.textContent = t("mapTitle");
   els.mapSubtitle.textContent = t("mapSubtitle");
@@ -1743,7 +2062,10 @@ function renderMap() {
   if (!state.maps.ready || !state.maps.map) {
     els.mapCanvas.className = "map-empty";
     els.mapCanvas.textContent = t("locationLoading");
+    return;
   }
+  els.mapCanvas.className = "";
+  els.mapCanvas.textContent = "";
 }
 
 function renderAll() {
@@ -1751,6 +2073,8 @@ function renderAll() {
   renderAuthGate();
   renderHero();
   renderSummaryCards();
+  renderSectionNav();
+  renderSectionPanels();
   renderTravelModes();
   renderMap();
   renderNearby();
@@ -1758,7 +2082,7 @@ function renderAll() {
   renderAssistant();
   renderThreads();
   renderChat();
-  renderAccordionPanels();
+  renderPlanBuilder();
 }
 
 function normalizePlace(place, category) {
@@ -1794,6 +2118,7 @@ function normalizePlace(place, category) {
     category,
     photo,
     openingHours: place.opening_hours?.weekday_text || [],
+    openingHoursPeriods: Array.isArray(place.opening_hours?.periods) ? place.opening_hours.periods : [],
     editorialSummary: place.editorial_summary?.overview || "",
   };
 }
@@ -2207,19 +2532,29 @@ function addRouteSummaryToPlan(placeId, summary) {
 }
 
 function buildRouteSummary(leg) {
-  return `${leg.duration?.text || ""} · ${leg.distance?.text || ""}`.trim();
+  const travelText = leg.duration_in_traffic?.text || leg.duration?.text || "";
+  return `${travelText} · ${leg.distance?.text || ""}`.trim();
 }
 
-async function getRouteBetween(origin, destination, { render = false } = {}) {
+async function getRouteBetween(origin, destination, { render = false, departureTime = null } = {}) {
   if (!origin || !destination || !state.maps.directionsService) {
     return null;
   }
 
-  const result = await state.maps.directionsService.route({
+  const request = {
     origin,
     destination,
     travelMode: google.maps.TravelMode[state.travelMode],
-  });
+  };
+
+  if (state.travelMode === "DRIVING" && departureTime instanceof Date) {
+    request.drivingOptions = {
+      departureTime,
+      trafficModel: "bestguess",
+    };
+  }
+
+  const result = await state.maps.directionsService.route(request);
 
   if (render && state.maps.directionsRenderer) {
     state.maps.directionsRenderer.setDirections(result);
@@ -2230,14 +2565,34 @@ async function getRouteBetween(origin, destination, { render = false } = {}) {
     return null;
   }
 
+  const trafficDurationValue = Number(leg.duration_in_traffic?.value) || 0;
+  const trafficRatio = trafficDurationValue && Number(leg.duration?.value)
+    ? trafficDurationValue / Number(leg.duration.value)
+    : 1;
+
+  let trafficColor = "green";
+  let trafficLabel = micro("trafficLow");
+
+  if (trafficRatio > 1.2) {
+    trafficColor = "red";
+    trafficLabel = micro("trafficHigh");
+  } else if (trafficRatio > 1.05) {
+    trafficColor = "yellow";
+    trafficLabel = micro("trafficMedium");
+  }
+
   return {
     duration: leg.duration?.text || "",
     distance: leg.distance?.text || "",
     durationValue: Number(leg.duration?.value) || 0,
+    durationInTraffic: leg.duration_in_traffic?.text || "",
+    durationInTrafficValue: trafficDurationValue,
     distanceValue: Number(leg.distance?.value) || 0,
     startAddress: leg.start_address || "",
     endAddress: leg.end_address || "",
     summary: buildRouteSummary(leg),
+    trafficColor,
+    trafficLabel,
   };
 }
 
@@ -2291,6 +2646,7 @@ function addPlaceToPlan(placeId) {
     return;
   }
   state.plan = [...state.plan, { ...place, routeSummary: t("routeNone") }];
+  invalidateGeneratedPlan();
   savePlan();
   scheduleMemoryRefresh();
   schedulePersist();
@@ -2300,6 +2656,7 @@ function addPlaceToPlan(placeId) {
 
 function removePlaceFromPlan(placeId) {
   state.plan = state.plan.filter((place) => place.id !== placeId);
+  invalidateGeneratedPlan();
   savePlan();
   scheduleMemoryRefresh();
   schedulePersist();
@@ -2437,6 +2794,235 @@ async function calculateRoute(placeId) {
   return route;
 }
 
+function invalidateGeneratedPlan() {
+  if (!state.generatedPlan) {
+    return;
+  }
+
+  state.generatedPlan = null;
+  saveGeneratedPlan();
+  schedulePersist();
+  if (state.realtime.connected) {
+    updateRealtimeSession();
+  }
+}
+
+function weekdayLineForDate(place, date) {
+  if (!Array.isArray(place?.openingHours) || !place.openingHours.length) {
+    return "";
+  }
+
+  const jsDay = date.getDay();
+  const mondayFirstIndex = jsDay === 0 ? 6 : jsDay - 1;
+  return place.openingHours[mondayFirstIndex] || "";
+}
+
+function hhmmToMinutes(value) {
+  const raw = String(value || "").replace(":", "");
+  if (!/^\d{3,4}$/.test(raw)) {
+    return 0;
+  }
+
+  const padded = raw.padStart(4, "0");
+  return Number(padded.slice(0, 2)) * 60 + Number(padded.slice(2, 4));
+}
+
+function weeklyMinutes(date) {
+  return date.getDay() * 1440 + date.getHours() * 60 + date.getMinutes();
+}
+
+function buildOpeningWindows(periods) {
+  return periods.flatMap((period) => {
+    const open = period?.open;
+    const close = period?.close;
+
+    if (!open) {
+      return [];
+    }
+
+    const openTotal = Number(open.day || 0) * 1440 + hhmmToMinutes(open.time || "0000");
+    let closeTotal = close
+      ? Number(close.day || 0) * 1440 + hhmmToMinutes(close.time || "2359")
+      : openTotal + 24 * 60;
+
+    if (closeTotal <= openTotal) {
+      closeTotal += 7 * 1440;
+    }
+
+    return [
+      { start: openTotal, end: closeTotal },
+      { start: openTotal - 7 * 1440, end: closeTotal - 7 * 1440 },
+    ];
+  });
+}
+
+function getOpeningStatus(place, startDate, endDate) {
+  const periods = Array.isArray(place?.openingHoursPeriods) ? place.openingHoursPeriods : [];
+  const dayLine = weekdayLineForDate(place, startDate);
+
+  if (!periods.length) {
+    return {
+      tone: "neutral",
+      label: micro("hoursUnknown"),
+      detail: dayLine,
+    };
+  }
+
+  const startTotal = weeklyMinutes(startDate);
+  let endTotal = weeklyMinutes(endDate);
+  if (endTotal < startTotal) {
+    endTotal += 7 * 1440;
+  }
+
+  for (const window of buildOpeningWindows(periods)) {
+    if (startTotal >= window.start && startTotal < window.end) {
+      if (endTotal <= window.end) {
+        return {
+          tone: "ok",
+          label: micro("hoursOk"),
+          detail: dayLine,
+        };
+      }
+
+      return {
+        tone: "warn",
+        label: micro("hoursWarn"),
+        detail: dayLine,
+      };
+    }
+  }
+
+  return {
+    tone: "bad",
+    label: micro("hoursClosed"),
+    detail: dayLine,
+  };
+}
+
+function buildPlanSummary(plan) {
+  return `${formatTimeOnly(new Date(plan.startDateTime))} - ${formatTimeOnly(new Date(plan.endDateTime))} · ${formatMinutesLabel(
+    plan.totalTravelMinutes + plan.totalVisitMinutes
+  )}`;
+}
+
+function combineDateAndTime(dateValue, timeValue) {
+  if (!dateValue || !timeValue) {
+    return null;
+  }
+
+  const combined = new Date(`${dateValue}T${timeValue}:00`);
+  return Number.isNaN(combined.getTime()) ? null : combined;
+}
+
+async function buildTravelerPlan({
+  name = "",
+  date = getTodayIso(),
+  startTime = "10:00",
+} = {}) {
+  const places = state.plan.filter((place) => place?.location);
+  if (!places.length) {
+    return { error: t("emptyPlan") };
+  }
+
+  const startDate = combineDateAndTime(date, startTime);
+  if (!startDate) {
+    return { error: micro("planBuilderHint") };
+  }
+
+  let cursorLocation = state.location?.coords || DEFAULT_COORDS;
+  let cursorName = micro("generatedPlanOrigin");
+  let cursorTime = new Date(startDate);
+  let totalTravelMinutes = 0;
+  let totalVisitMinutes = 0;
+  const items = [];
+
+  for (const place of places) {
+    const route = await getRouteBetween(cursorLocation, place.location, {
+      departureTime: cursorTime,
+    });
+    const travelMinutes = route
+      ? Math.max(1, Math.round((route.durationInTrafficValue || route.durationValue || 0) / 60))
+      : 20;
+    const visitMinutes = estimateVisitMinutes(place);
+    const startAt = new Date(cursorTime.getTime() + travelMinutes * 60000);
+    const endAt = new Date(startAt.getTime() + visitMinutes * 60000);
+    const availability = getOpeningStatus(place, startAt, endAt);
+
+    items.push({
+      order: items.length + 1,
+      placeId: place.id,
+      name: place.name,
+      category: place.category,
+      address: place.address || "",
+      mapsUrl: place.mapsUrl || "",
+      routeFromPrevious: {
+        originLabel: cursorName,
+        durationText: route?.durationInTraffic || route?.duration || formatMinutesLabel(travelMinutes),
+        distanceText: route?.distance || "",
+        trafficColor: route?.trafficColor || "green",
+        trafficLabel: route?.trafficLabel || micro("trafficLow"),
+      },
+      startAt: startAt.toISOString(),
+      endAt: endAt.toISOString(),
+      startLabel: formatTimeOnly(startAt),
+      endLabel: formatTimeOnly(endAt),
+      visitMinutes,
+      visitText: formatMinutesLabel(visitMinutes),
+      availability,
+    });
+
+    totalTravelMinutes += travelMinutes;
+    totalVisitMinutes += visitMinutes;
+    cursorLocation = place.location;
+    cursorName = place.name;
+    cursorTime = endAt;
+  }
+
+  const builtPlan = {
+    name: String(name || "").trim() || t("planTitle"),
+    date,
+    startTime,
+    startDateTime: startDate.toISOString(),
+    endDateTime: cursorTime.toISOString(),
+    createdAt: Date.now(),
+    travelMode: t("travelModes")[state.travelMode] || state.travelMode,
+    basedOnLocation: state.location?.displayName || DEFAULT_COORDS.name,
+    totalTravelMinutes,
+    totalVisitMinutes,
+    summary: "",
+    items,
+  };
+  builtPlan.summary = buildPlanSummary(builtPlan);
+  state.generatedPlan = builtPlan;
+  saveGeneratedPlan();
+  schedulePersist();
+  if (state.realtime.connected) {
+    updateRealtimeSession();
+  }
+  return builtPlan;
+}
+
+function movePlanItem(draggedId, targetId) {
+  if (!draggedId || !targetId || draggedId === targetId) {
+    return;
+  }
+
+  const fromIndex = state.plan.findIndex((item) => item.id === draggedId);
+  const toIndex = state.plan.findIndex((item) => item.id === targetId);
+  if (fromIndex < 0 || toIndex < 0) {
+    return;
+  }
+
+  const nextPlan = [...state.plan];
+  const [moved] = nextPlan.splice(fromIndex, 1);
+  nextPlan.splice(toIndex, 0, moved);
+  state.plan = nextPlan;
+  invalidateGeneratedPlan();
+  savePlan();
+  schedulePersist();
+  renderPlan();
+}
+
 function summarizePlaceForAssistant(place, index) {
   return `${index + 1}. ${place.name} | ${t("placeTypes")[place.category] || place.category} | ${
     place.address || ""
@@ -2453,6 +3039,12 @@ function buildLiveContextSnapshot(limit = 4) {
     .slice(0, limit)
     .map((place, index) => `${index + 1}. ${place.name} | ${place.routeSummary || t("routeNone")} | ${place.address || ""}`)
     .join("\n");
+  const generatedPlan = state.generatedPlan?.items?.length
+    ? [
+        `${state.generatedPlan.name} | ${state.generatedPlan.date} | ${state.generatedPlan.summary}`,
+        ...state.generatedPlan.items.map((item, index) => `${index + 1}. ${item.name} | ${item.startLabel}-${item.endLabel} | ${item.availability.label}`),
+      ].join("\n")
+    : "";
   const currentWeather = state.weather
     ? `${weatherLabel(state.weather.current_weather.weathercode)} ${formatTemperature(
         state.weather.current_weather.temperature
@@ -2478,6 +3070,9 @@ ${recommended || "No nearby places loaded yet."}
 
 SAVED PLAN:
 ${savedPlan || "No saved activities yet."}
+
+GENERATED DAY PLAN:
+${generatedPlan || "No generated day plan yet."}
   `.trim();
 }
 
@@ -2557,6 +3152,7 @@ function buildTurnResponseInstructions(userText = "") {
   if (asksForItinerary) {
     return `Use only the current live context for the traveler location in ${state.location?.country || "the current country"}.
 Call compose_itinerary before answering.
+If the traveler asks to turn the saved stops into a timed day plan, call build_day_plan.
 Explain the order, travel time, estimated time at each stop, and why it fits the weather and the current position.
 If the traveler requests a specific kind of place and you do not see it in the short-radius context, call get_nearby_places with that category so the app can expand the search radius automatically.
 Do not mention another country, city, cuisine, or cultural reference unless it appears in the live context or the traveler asks for it.`;
@@ -2566,13 +3162,14 @@ Do not mention another country, city, cuisine, or cultural reference unless it a
     return `Do not answer generically.
 Use the current traveler location, weather, nearby Google places, and saved plan.
 Mention at least two named places from the live context and explain why they fit right now.
-If nearby Google places are missing, say that clearly and ask the traveler to refresh context instead of improvising.
+If nearby Google places are missing, say that clearly and avoid improvising local details.
 If the traveler asks for a specific category such as museums, cafes, restaurants, or attractions and you do not have enough matching places, call get_nearby_places with that category to expand the search radius automatically.
 Do not mention another country, city, cuisine, or cultural reference unless it appears in the live context or the traveler asks for it.`;
   }
 
   return `Use the live travel context and the latest traveler memory whenever it makes the answer more useful.
-Never drift to another country or generic travel advice if the live context already gives you the current location.`;
+Never drift to another country or generic travel advice if the live context already gives you the current location.
+If the traveler asks to save, remove, or schedule activities, use the tools instead of only describing what to do.`;
 }
 
 function buildRealtimeInstructions() {
@@ -2588,6 +3185,12 @@ function buildRealtimeInstructions() {
   const plan = state.plan
     .map((place, index) => `${index + 1}. ${place.name} | ${place.routeSummary || ""} | ${buildPlaceReason(place)}`)
     .join("\n");
+  const generatedPlan = state.generatedPlan?.items?.length
+    ? [
+        `${state.generatedPlan.name} | ${state.generatedPlan.date} | ${state.generatedPlan.summary}`,
+        ...state.generatedPlan.items.map((item, index) => `${index + 1}. ${item.name} | ${item.startLabel}-${item.endLabel} | ${item.availability.label}`),
+      ].join("\n")
+    : "";
   const transcript = getRecentTranscript();
 
   return `
@@ -2601,6 +3204,7 @@ The current traveler is physically in ${state.location?.country || "the current 
 Do not mention another country, city, cuisine, or regional cultural reference unless it appears in the live context below or the traveler explicitly asks for it.
 If the traveler asks what to do, what you suggest, or for a plan, use named places from the live context and explain weather fit, route convenience, and expected pacing.
 If the traveler asks for an itinerary, route order, or schedule, call compose_itinerary before answering.
+If the traveler asks to save a place, remove one, or create a timed day plan, use the appropriate tool.
 If the traveler asks for route details to a specific stop, call get_route_to_place.
 If nearby Google place data is missing, say that you do not have live nearby places yet and avoid improvising local details.
 Use the available tools whenever live data would improve the answer.
@@ -2622,6 +3226,9 @@ ${nearby || "No live nearby places loaded yet."}
 
 Traveler plan:
 ${plan || "No saved activities yet."}
+
+Generated day plan:
+${generatedPlan || "No generated day plan yet."}
 
 Recent active chat:
 ${transcript || "No previous messages in this chat yet."}
@@ -2653,13 +3260,13 @@ function buildRealtimeTools() {
     {
       type: "function",
       name: "get_route_to_place",
-      description: "Calculate route info from the traveler location to a known place.",
+      description: "Calculate route info from the traveler location to a known place by id or place name.",
       parameters: {
         type: "object",
         properties: {
           place_id: { type: "string" },
+          place_name: { type: "string" },
         },
-        required: ["place_id"],
       },
     },
     {
@@ -2682,31 +3289,52 @@ function buildRealtimeTools() {
     {
       type: "function",
       name: "save_activity_to_plan",
-      description: "Save a known nearby place into the traveler plan.",
+      description: "Save a known nearby place into the traveler plan by id or by place name.",
       parameters: {
         type: "object",
         properties: {
           place_id: { type: "string" },
+          place_name: { type: "string" },
+          place_ids: {
+            type: "array",
+            items: { type: "string" },
+          },
+          place_names: {
+            type: "array",
+            items: { type: "string" },
+          },
         },
-        required: ["place_id"],
       },
     },
     {
       type: "function",
       name: "remove_activity_from_plan",
-      description: "Remove an activity from the traveler plan.",
+      description: "Remove an activity from the traveler plan by id or by place name.",
       parameters: {
         type: "object",
         properties: {
           place_id: { type: "string" },
+          place_name: { type: "string" },
         },
-        required: ["place_id"],
+      },
+    },
+    {
+      type: "function",
+      name: "build_day_plan",
+      description: "Create a timed traveler plan using the saved activities, date, and start time.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string" },
+          date: { type: "string" },
+          start_time: { type: "string" },
+        },
       },
     },
     {
       type: "function",
       name: "list_saved_plan",
-      description: "Return all currently saved activities in the traveler plan.",
+      description: "Return all currently saved activities in the traveler plan and the generated timed plan if it exists.",
       parameters: { type: "object", properties: {} },
     },
   ];
@@ -2806,6 +3434,7 @@ async function handleToolCall(outputItem) {
         nearby_places: state.nearbyPlaces,
         recommended_now: getRecommendedPlaces(3),
         saved_plan: state.plan,
+        generated_plan: state.generatedPlan,
       };
       break;
     case "get_nearby_places":
@@ -2830,7 +3459,8 @@ async function handleToolCall(outputItem) {
       }
       break;
     case "get_route_to_place": {
-      const route = await calculateRoute(args.place_id);
+      const targetPlace = args.place_id ? findPlace(args.place_id) : findPlaceByName(args.place_name);
+      const route = targetPlace ? await calculateRoute(targetPlace.id) : null;
       result = route || { error: t("noRoute") };
       break;
     }
@@ -2842,16 +3472,42 @@ async function handleToolCall(outputItem) {
         preferSaved: args.prefer_saved ?? true,
       });
       break;
-    case "save_activity_to_plan":
-      addPlaceToPlan(args.place_id);
-      result = { saved: Boolean(state.plan.find((item) => item.id === args.place_id)), plan: state.plan };
+    case "save_activity_to_plan": {
+      const requestedIds = [
+        ...(Array.isArray(args.place_ids) ? args.place_ids : []),
+        ...(args.place_id ? [args.place_id] : []),
+      ];
+      const requestedNames = [
+        ...(Array.isArray(args.place_names) ? args.place_names : []),
+        ...(args.place_name ? [args.place_name] : []),
+      ];
+      const resolvedPlaces = [
+        ...requestedIds.map((placeId) => findPlace(placeId)).filter(Boolean),
+        ...requestedNames.map((placeName) => findPlaceByName(placeName)).filter(Boolean),
+      ].filter((place, index, list) => list.findIndex((item) => item.id === place.id) === index);
+
+      resolvedPlaces.forEach((place) => addPlaceToPlan(place.id));
+      result = { saved: resolvedPlaces.map((place) => place.name), plan: state.plan };
       break;
-    case "remove_activity_from_plan":
-      removePlaceFromPlan(args.place_id);
-      result = { removed: !state.plan.find((item) => item.id === args.place_id), plan: state.plan };
+    }
+    case "remove_activity_from_plan": {
+      const targetPlace = args.place_id ? findPlace(args.place_id) : findPlaceByName(args.place_name);
+      if (targetPlace) {
+        removePlaceFromPlan(targetPlace.id);
+      }
+      result = { removed: Boolean(targetPlace), plan: state.plan };
+      break;
+    }
+    case "build_day_plan":
+      result = await buildTravelerPlan({
+        name: args.name,
+        date: args.date || getTodayIso(),
+        startTime: args.start_time || "10:00",
+      });
+      renderPlan();
       break;
     case "list_saved_plan":
-      result = { plan: state.plan };
+      result = { plan: state.plan, generated_plan: state.generatedPlan };
       break;
     default:
       result = { error: `Unknown tool: ${outputItem.name}` };
@@ -3142,7 +3798,7 @@ async function connectRealtime() {
     }
     renderAssistant();
 
-    if (state.messages.length <= 1) {
+    if (state.assistantMode === "voice" && state.messages.length <= 1) {
       await sendTextToAssistant(
         `${t("starterQuestion")} ${
           state.location?.displayName ? `Current location: ${state.location.displayName}. ` : ""
@@ -3301,6 +3957,28 @@ function sanitizePlan(plan) {
     }));
 }
 
+function sanitizeGeneratedPlan(plan) {
+  if (!plan || typeof plan !== "object" || !Array.isArray(plan.items)) {
+    return null;
+  }
+
+  return {
+    ...plan,
+    name: String(plan.name || "").trim(),
+    date: String(plan.date || ""),
+    startTime: String(plan.startTime || ""),
+    summary: String(plan.summary || ""),
+    items: plan.items
+      .filter((item) => item && typeof item === "object" && item.placeId)
+      .map((item) => ({
+        ...item,
+        placeId: String(item.placeId),
+        name: String(item.name || ""),
+        address: String(item.address || ""),
+      })),
+  };
+}
+
 function resetTravelerSession() {
   disconnectRealtime();
   state.user = null;
@@ -3309,9 +3987,14 @@ function resetTravelerSession() {
   state.authError = "";
   state.isAuthSubmitting = false;
   state.plan = [];
+  state.generatedPlan = null;
   state.memorySummary = DEFAULT_MEMORY_SUMMARY;
   state.contextUpdatedAt = 0;
   state.travelMode = DEFAULT_SETTINGS.travelMode;
+  state.activeSection = "nearby";
+  state.menuOpen = false;
+  state.planBuilderOpen = false;
+  state.planDragId = null;
   state.confirmedLanguage = localStorage.getItem(LOCAL_LANGUAGE_KEY) || DEFAULT_SETTINGS.language;
   state.languageConfirmed =
     localStorage.getItem(LOCAL_LANGUAGE_CONFIRMED_KEY) === "1"
@@ -3329,6 +4012,7 @@ function resetTravelerSession() {
   state.assistantMode = DEFAULT_SETTINGS.assistantMode;
   setChats([createChat()]);
   localStorage.removeItem(LOCAL_PLAN_KEY);
+  localStorage.removeItem(LOCAL_GENERATED_PLAN_KEY);
 }
 
 async function hydrateUserState(firebaseUser) {
@@ -3356,13 +4040,19 @@ async function hydrateUserState(firebaseUser) {
       ? stored.settings?.voiceEnabled ?? DEFAULT_SETTINGS.voiceEnabled
       : false;
     state.realtime.assistantSpeaking = false;
+    state.activeSection = "nearby";
+    state.menuOpen = false;
+    state.planBuilderOpen = false;
+    state.planDragId = null;
     state.plan = sanitizePlan(stored.plan ?? loadPlan());
+    state.generatedPlan = sanitizeGeneratedPlan(stored.generatedPlan ?? loadGeneratedPlan());
     setChats(stored.chats, stored.activeChatId);
     state.memorySummary = String(stored.memorySummary || "").trim() || buildTravelerMemory();
     state.contextUpdatedAt = 0;
 
     localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
     savePlan();
+    saveGeneratedPlan();
     state.authStatus = "authenticated";
     schedulePersist();
   } catch (error) {
@@ -3521,6 +4211,88 @@ async function refreshContext() {
   }
 }
 
+function setMenuOpen(isOpen) {
+  state.menuOpen = Boolean(isOpen);
+  renderSectionPanels();
+}
+
+function switchSection(section) {
+  if (!["map", "nearby", "plan"].includes(section)) {
+    return;
+  }
+  state.activeSection = section;
+  renderSectionNav();
+  renderSectionPanels();
+}
+
+function openLanguageSelector() {
+  state.menuOpen = false;
+  state.languageGateOpen = true;
+  renderAll();
+  els.languageSelect.value = state.language;
+}
+
+async function requestInlineSuggestion() {
+  if (!state.user) {
+    return;
+  }
+
+  state.assistantMode = "text";
+  state.realtime.voiceEnabled = false;
+  switchSection("nearby");
+  schedulePersist();
+  renderAssistant();
+  els.chatInput.focus();
+  if (!state.realtime.connected) {
+    await connectRealtime();
+  }
+  await sendTextToAssistant(micro("suggestionPrompt"));
+}
+
+function openPlanBuilder() {
+  if (!state.plan.length) {
+    return;
+  }
+  els.planNameInput.value = state.generatedPlan?.name || "";
+  els.planDateInput.value = state.generatedPlan?.date || getTodayIso();
+  els.planStartTimeInput.value = state.generatedPlan?.startTime || "10:00";
+  state.planBuilderOpen = true;
+  renderPlanBuilder();
+}
+
+function closePlanBuilder() {
+  state.planBuilderOpen = false;
+  renderPlanBuilder();
+}
+
+async function submitPlanBuilder() {
+  const result = await buildTravelerPlan({
+    name: els.planNameInput.value.trim(),
+    date: els.planDateInput.value,
+    startTime: els.planStartTimeInput.value,
+  });
+
+  if (result?.error) {
+    pushMessage("assistant", result.error);
+    closePlanBuilder();
+    return;
+  }
+
+  closePlanBuilder();
+  switchSection("plan");
+  renderPlan();
+}
+
+function startAutoContextRefresh() {
+  if (contextRefreshInterval) {
+    return;
+  }
+
+  contextRefreshInterval = window.setInterval(() => {
+    refreshContext().catch((error) => console.error(error));
+  }, 240000);
+}
+
 function bindEvents() {
   els.remoteAudio.addEventListener("playing", () => {
     if (state.realtime.voiceEnabled) {
@@ -3534,6 +4306,12 @@ function bindEvents() {
   });
 
   document.addEventListener("click", (event) => {
+    const sectionButton = event.target.closest("[data-section-switch]");
+    if (sectionButton) {
+      switchSection(sectionButton.dataset.sectionSwitch);
+      return;
+    }
+
     const accordionToggle = event.target.closest("[data-accordion-toggle]");
     if (accordionToggle) {
       const key = accordionToggle.dataset.accordionToggle;
@@ -3564,6 +4342,7 @@ function bindEvents() {
     const saveButton = event.target.closest("[data-save-place]");
     if (saveButton) {
       addPlaceToPlan(saveButton.dataset.savePlace);
+      switchSection("plan");
       return;
     }
 
@@ -3576,6 +4355,7 @@ function bindEvents() {
     const routeButton = event.target.closest("[data-route-place]");
     if (routeButton) {
       state.selectedPlaceId = routeButton.dataset.routePlace;
+      switchSection("map");
       calculateRoute(routeButton.dataset.routePlace).catch(() => {});
       return;
     }
@@ -3583,6 +4363,12 @@ function bindEvents() {
     const mapsButton = event.target.closest("[data-open-place]");
     if (mapsButton) {
       openPlaceInMaps(mapsButton.dataset.openPlace);
+      return;
+    }
+
+    const generatedMapsButton = event.target.closest("[data-open-generated-place]");
+    if (generatedMapsButton) {
+      openPlaceInMaps(generatedMapsButton.dataset.openGeneratedPlace);
       return;
     }
 
@@ -3622,11 +4408,11 @@ function bindEvents() {
     }
   });
 
-  els.changeLanguageBtn.addEventListener("click", () => {
-    state.languageGateOpen = true;
-    renderLanguageGate();
-    els.languageSelect.value = state.language;
-  });
+  els.menuToggleBtn.addEventListener("click", () => setMenuOpen(!state.menuOpen));
+  els.menuCloseBtn.addEventListener("click", () => setMenuOpen(false));
+  els.menuBackdrop.addEventListener("click", () => setMenuOpen(false));
+  els.languageQuickBtn.addEventListener("click", openLanguageSelector);
+  els.changeLanguageBtn.addEventListener("click", openLanguageSelector);
   els.languageCloseBtn.addEventListener("click", () => {
     state.language = state.confirmedLanguage;
     document.documentElement.lang = state.language;
@@ -3658,6 +4444,7 @@ function bindEvents() {
   });
   els.authGoogleBtn.addEventListener("click", () => handleGoogleAccess().catch((error) => console.error(error)));
   els.authLogoutBtn.addEventListener("click", () => handleLogout().catch((error) => console.error(error)));
+  els.suggestionBtn.addEventListener("click", () => requestInlineSuggestion().catch((error) => console.error(error)));
   els.locateBtn.addEventListener("click", () => refreshContext().catch((error) => console.error(error)));
   els.refreshBtn.addEventListener("click", () => refreshContext().catch((error) => console.error(error)));
   els.connectBtn.addEventListener("click", () => connectRealtime().catch((error) => console.error(error)));
@@ -3665,7 +4452,26 @@ function bindEvents() {
   els.contextBtn.addEventListener("click", () => refreshContext().catch((error) => console.error(error)));
   els.micBtn.addEventListener("click", toggleMicrophone);
   els.voiceBtn.addEventListener("click", toggleVoice);
+  els.voiceSessionBtn.addEventListener("click", () => {
+    if (state.realtime.connected || state.realtime.connecting) {
+      disconnectRealtime();
+      return;
+    }
+    connectRealtime().catch((error) => console.error(error));
+  });
   els.newChatBtn.addEventListener("click", createNewChat);
+  els.openPlanBuilderBtn.addEventListener("click", openPlanBuilder);
+  els.planBuilderCloseBtn.addEventListener("click", closePlanBuilder);
+  els.planBuilderCancelBtn.addEventListener("click", closePlanBuilder);
+  els.planBuilderSheet.addEventListener("click", (event) => {
+    if (event.target === els.planBuilderSheet) {
+      closePlanBuilder();
+    }
+  });
+  els.planBuilderForm.addEventListener("submit", (event) => {
+    event.preventDefault();
+    submitPlanBuilder().catch((error) => console.error(error));
+  });
   els.chatForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const text = els.chatInput.value.trim();
@@ -3678,12 +4484,63 @@ function bindEvents() {
     await sendTextToAssistant(text);
     els.chatInput.value = "";
   });
+
+  document.addEventListener("dragstart", (event) => {
+    const card = event.target.closest("[data-plan-drag]");
+    if (!card) {
+      return;
+    }
+    state.planDragId = card.dataset.planDrag;
+    card.classList.add("is-dragging");
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", state.planDragId);
+  });
+
+  document.addEventListener("dragover", (event) => {
+    const card = event.target.closest("[data-plan-drag]");
+    if (!card || !state.planDragId) {
+      return;
+    }
+    event.preventDefault();
+    card.classList.add("is-drag-over");
+  });
+
+  document.addEventListener("dragleave", (event) => {
+    const card = event.target.closest("[data-plan-drag]");
+    if (card) {
+      card.classList.remove("is-drag-over");
+    }
+  });
+
+  document.addEventListener("drop", (event) => {
+    const card = event.target.closest("[data-plan-drag]");
+    if (!card || !state.planDragId) {
+      return;
+    }
+    event.preventDefault();
+    card.classList.remove("is-drag-over");
+    movePlanItem(state.planDragId, card.dataset.planDrag);
+    state.planDragId = null;
+  });
+
+  document.addEventListener("dragend", () => {
+    state.planDragId = null;
+    document.querySelectorAll("[data-plan-drag]").forEach((card) => {
+      card.classList.remove("is-dragging", "is-drag-over");
+    });
+  });
 }
 
 function boot() {
   setChats([createChat()]);
   bindEvents();
   renderAll();
+  startAutoContextRefresh();
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") {
+      refreshContext().catch((error) => console.error(error));
+    }
+  });
   onAuthStateChanged(auth, async (firebaseUser) => {
     if (!firebaseUser) {
       resetTravelerSession();
