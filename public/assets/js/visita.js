@@ -558,6 +558,22 @@ function getRealtimeTimeoutMessage() {
   return labels[state.language] || labels.en;
 }
 
+function getRealtimeSdpErrorMessage(details = "") {
+  const base = {
+    es: "No se pudo abrir la sesion de voz en tiempo real.",
+    en: "Could not open the realtime voice session.",
+    fr: "Impossible d'ouvrir la session vocale temps reel.",
+    pt: "Nao foi possivel abrir a sessao de voz em tempo real.",
+    ja: "リアルタイム音声セッションを開始できませんでした。",
+    ko: "실시간 음성 세션을 열 수 없습니다.",
+    ar: "تعذر فتح جلسة الصوت الفوري.",
+    zh: "无法打开实时语音会话。",
+    de: "Die Realtime-Sprachsitzung konnte nicht gestartet werden.",
+  };
+
+  return `${base[state.language] || base.en}${details ? ` ${details}` : ""}`.trim();
+}
+
 function normalizeRealtimeError(error) {
   const message = String(error?.message || "");
 
@@ -1342,7 +1358,7 @@ async function loadGoogleMaps() {
     const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
       GOOGLE_API_KEY
-    )}&libraries=places,geometry&v=weekly`;
+    )}&libraries=places,geometry&v=weekly&loading=async`;
     script.async = true;
     script.defer = true;
     script.dataset.googleMaps = "true";
@@ -2046,6 +2062,10 @@ async function connectRealtime() {
       }
     }
 
+    if (!stream) {
+      pc.addTransceiver("audio", { direction: "recvonly" });
+    }
+
     const offer = await pc.createOffer();
     await pc.setLocalDescription(offer);
 
@@ -2057,6 +2077,20 @@ async function connectRealtime() {
       },
       body: offer.sdp,
     });
+
+    if (!response.ok) {
+      const rawError = await response.text();
+      let detail = "";
+
+      try {
+        const parsed = JSON.parse(rawError);
+        detail = parsed?.error?.message || rawError;
+      } catch {
+        detail = rawError;
+      }
+
+      throw new Error(getRealtimeSdpErrorMessage(detail));
+    }
 
     const answer = {
       type: "answer",
