@@ -368,6 +368,7 @@ const state = {
   nearbyPlaces: [],
   selectedPlaceId: null,
   quickSuggestion: "",
+  contextUpdatedAt: 0,
   user: null,
   authStatus: "loading",
   authMode: "login",
@@ -403,6 +404,8 @@ const state = {
     micEnabled: DEFAULT_SETTINGS.micEnabled,
     voiceEnabled: DEFAULT_SETTINGS.voiceEnabled,
     assistantSpeaking: false,
+    pendingVoiceResponseTimer: null,
+    handledAudioItems: {},
     activeResponseId: null,
     bufferByResponse: {},
   },
@@ -411,6 +414,7 @@ const state = {
 
 let persistTimer = null;
 let memoryTimer = null;
+let refreshContextPromise = null;
 
 const els = {
   languageGate: document.getElementById("languageGate"),
@@ -1302,6 +1306,26 @@ function formatDistance(meters) {
 
   const kilometers = meters / 1000;
   return `${kilometers >= 10 ? Math.round(kilometers) : kilometers.toFixed(1)} km`;
+}
+
+function getRealtimeLanguageCode() {
+  return ["es", "en", "fr", "pt", "ja", "ko", "ar", "zh", "de"].includes(state.language)
+    ? state.language
+    : "en";
+}
+
+function hasUsefulLiveContext() {
+  const hasLocation = Boolean(state.location?.coords && state.location?.displayName);
+  const hasWeather = Boolean(state.weather?.current_weather);
+  const hasNearby = !isConfigured(GOOGLE_API_KEY) || state.nearbyPlaces.length > 0;
+  return hasLocation && hasWeather && hasNearby;
+}
+
+function clearPendingVoiceResponseTimer() {
+  if (state.realtime.pendingVoiceResponseTimer) {
+    clearTimeout(state.realtime.pendingVoiceResponseTimer);
+    state.realtime.pendingVoiceResponseTimer = null;
+  }
 }
 
 function getVoiceVisualizerCopy() {
@@ -2338,6 +2362,32 @@ ${savedPlan || "No saved activities yet."}
   `.trim();
 }
 
+async function ensureFreshContext({ force = false } = {}) {
+  const isStale = Date.now() - state.contextUpdatedAt > 180000;
+  if (!force && !isStale && hasUsefulLiveContext()) {
+    return;
+  }
+
+  if (!refreshContextPromise) {
+    refreshContextPromise = refreshContext().finally(() => {
+      refreshContextPromise = null;
+    });
+  }
+
+  await refreshContextPromise;
+}
+
+function requestRealtimeResponseForTurn(userText = "") {
+  updateRealtimeSession();
+  sendRealtimeEvent({
+    type: "response.create",
+    response: {
+      output_modalities: state.realtime.voiceEnabled ? ["audio", "text"] : ["text"],
+      instructions: `${buildTurnResponseInstructions(userText)}\n\n${buildLiveContextSnapshot(3)}`,
+    },
+  });
+}
+
 function buildTurnResponseInstructions(userText = "") {
   const message = String(userText || "").toLowerCase();
   const asksForItinerary = /itiner|agenda|schedule|organi[sz]|ruta|route|plan de|plan for|roadmap|que hago hoy|what should i do/.test(
@@ -2522,8 +2572,14 @@ function updateRealtimeSession() {
           voice: "marin",
         },
         input: {
+          transcription: {
+            model: "gpt-4o-mini-transcribe",
+            language: getRealtimeLanguageCode(),
+          },
           turn_detection: {
             type: "semantic_vad",
+            create_response: false,
+            interrupt_response: true,
           },
         },
       },
@@ -2663,14 +2719,40 @@ async function handleRealtimeEvent(raw) {
   }
 
   if (event.type === "input_audio_buffer.speech_started") {
+    clearPendingVoiceResponseTimer();
     setAssistantSpeaking(false);
     els.locationStatusText.textContent = t("speechReady");
     return;
   }
 
   if (event.type === "input_audio_buffer.speech_stopped") {
+    clearPendingVoiceResponseTimer();
+    state.realtime.pendingVoiceResponseTimer = setTimeout(() => {
+      ensureFreshContext().catch(() => {}).finally(() => {
+        requestRealtimeResponseForTurn("");
+      });
+    }, 1200);
     setAssistantSpeaking(false);
     els.locationStatusText.textContent = state.realtime.micEnabled ? t("speechReady") : t("speechMuted");
+    return;
+  }
+
+  if (event.type === "conversation.item.input_audio_transcription.completed") {
+    clearPendingVoiceResponseTimer();
+    const transcript = String(
+      event.transcript
+      || event.item?.content?.find?.((content) => content.transcript)?.transcript
+      || ""
+    ).trim();
+    const itemId = event.item_id || event.item?.id || `audio-${Date.now()}`;
+
+    if (transcript && !state.realtime.handledAudioItems[itemId]) {
+      state.realtime.handledAudioItems[itemId] = true;
+      pushMessage("user", transcript);
+    }
+
+    await ensureFreshContext();
+    requestRealtimeResponseForTurn(transcript);
     return;
   }
 
@@ -2688,7 +2770,7 @@ async function handleRealtimeEvent(raw) {
       for (const call of toolCalls) {
         await handleToolCall(call);
       }
-      sendRealtimeEvent({ type: "response.create" });
+      requestRealtimeResponseForTurn("");
       return;
     }
 
@@ -2791,6 +2873,8 @@ async function connectRealtime() {
   renderAssistant();
 
   try {
+    await ensureFreshContext({ force: !hasUsefulLiveContext() });
+
     const pc = new RTCPeerConnection();
     state.realtime.pc = pc;
 
@@ -2887,7 +2971,7 @@ async function connectRealtime() {
     renderAssistant();
 
     if (state.messages.length <= 1) {
-      sendTextToAssistant(
+      await sendTextToAssistant(
         `${t("starterQuestion")} ${
           state.location?.displayName ? `Current location: ${state.location.displayName}. ` : ""
         }${
@@ -2911,6 +2995,7 @@ async function connectRealtime() {
 
 function disconnectRealtime() {
   const { micEnabled, voiceEnabled } = state.realtime;
+  clearPendingVoiceResponseTimer();
 
   if (state.realtime.stream) {
     state.realtime.stream.getTracks().forEach((track) => track.stop());
@@ -2931,6 +3016,8 @@ function disconnectRealtime() {
     micEnabled,
     voiceEnabled,
     assistantSpeaking: false,
+    pendingVoiceResponseTimer: null,
+    handledAudioItems: {},
     activeResponseId: null,
     bufferByResponse: {},
   };
@@ -2971,7 +3058,7 @@ ${String(userText || "").trim()}
   `.trim();
 }
 
-function sendTextToAssistant(text) {
+async function sendTextToAssistant(text) {
   if (!state.user) {
     return;
   }
@@ -2981,6 +3068,7 @@ function sendTextToAssistant(text) {
     return;
   }
 
+  await ensureFreshContext();
   updateRealtimeSession();
   pushMessage("user", clean);
   sendRealtimeEvent({
@@ -2996,13 +3084,7 @@ function sendTextToAssistant(text) {
       ],
     },
   });
-  sendRealtimeEvent({
-    type: "response.create",
-    response: {
-      output_modalities: state.realtime.voiceEnabled ? ["audio", "text"] : ["text"],
-      instructions: `${buildTurnResponseInstructions(clean)}\n\n${buildLiveContextSnapshot(3)}`,
-    },
-  });
+  requestRealtimeResponseForTurn(clean);
 }
 
 async function askPlace(placeId) {
@@ -3015,7 +3097,7 @@ async function askPlace(placeId) {
     await connectRealtime();
   }
 
-  sendTextToAssistant(
+  await sendTextToAssistant(
     `${t("askAI")}: ${place.name}. ${place.address || ""} ${
       place.openNow === null ? "" : place.openNow ? t("openNow") : t("closedNow")
     } ${formatPriceLevel(place.priceLevel)}`
@@ -3052,6 +3134,7 @@ function resetTravelerSession() {
   state.isAuthSubmitting = false;
   state.plan = [];
   state.memorySummary = DEFAULT_MEMORY_SUMMARY;
+  state.contextUpdatedAt = 0;
   state.travelMode = DEFAULT_SETTINGS.travelMode;
   state.confirmedLanguage = localStorage.getItem(LOCAL_LANGUAGE_KEY) || DEFAULT_SETTINGS.language;
   state.languageConfirmed =
@@ -3100,6 +3183,7 @@ async function hydrateUserState(firebaseUser) {
     state.plan = sanitizePlan(stored.plan ?? loadPlan());
     setChats(stored.chats, stored.activeChatId);
     state.memorySummary = String(stored.memorySummary || "").trim() || buildTravelerMemory();
+    state.contextUpdatedAt = 0;
 
     localStorage.setItem(LOCAL_LANGUAGE_KEY, state.language);
     savePlan();
@@ -3254,6 +3338,7 @@ async function refreshContext() {
   }
 
   state.quickSuggestion = buildQuickSuggestion();
+  state.contextUpdatedAt = Date.now();
   renderAll();
   if (state.realtime.connected) {
     updateRealtimeSession();
@@ -3414,7 +3499,7 @@ function bindEvents() {
     if (!state.realtime.connected) {
       await connectRealtime();
     }
-    sendTextToAssistant(text);
+    await sendTextToAssistant(text);
     els.chatInput.value = "";
   });
 }
