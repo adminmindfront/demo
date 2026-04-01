@@ -46,13 +46,16 @@
         </div>
 
         <div class="auth-card__form">
+          <div class="auth-feedback auth-feedback--success" id="authMessage"></div>
+          <div class="auth-feedback auth-feedback--error" id="authError"></div>
+
+          <button class="action-button auth-google" id="authGoogleBtn" type="button"></button>
+          <div class="auth-divider" id="authDivider"></div>
+
           <div class="auth-toggle">
             <button class="tiny-button is-active" id="authLoginModeBtn" type="button"></button>
             <button class="tiny-button" id="authSignupModeBtn" type="button"></button>
           </div>
-
-          <div class="auth-feedback auth-feedback--success" id="authMessage"></div>
-          <div class="auth-feedback auth-feedback--error" id="authError"></div>
 
           <form class="auth-form" id="authForm">
             <label class="auth-field" id="authNameField">
@@ -72,9 +75,6 @@
 
             <button class="action-button action-button--primary auth-submit" id="authSubmitBtn" type="submit"></button>
           </form>
-
-          <div class="auth-divider" id="authDivider"></div>
-          <button class="action-button auth-google" id="authGoogleBtn" type="button"></button>
           <p class="auth-legal" id="authLegal"></p>
         </div>
       </section>

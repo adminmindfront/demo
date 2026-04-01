@@ -176,6 +176,9 @@ button {
   padding: 1rem;
   background: rgba(4, 9, 17, 0.72);
   backdrop-filter: blur(18px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .auth-card {
@@ -190,6 +193,10 @@ button {
     rgba(12, 23, 40, 0.94);
   border: 1px solid var(--line);
   box-shadow: var(--shadow);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .auth-card__copy,
@@ -336,6 +343,10 @@ button {
 .auth-google,
 .auth-submit {
   width: 100%;
+}
+
+.auth-google {
+  order: 0;
 }
 
 .account-pill {

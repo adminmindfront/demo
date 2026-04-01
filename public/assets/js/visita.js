@@ -933,6 +933,21 @@ function getContinueLabel() {
   return labels[state.language] || labels.en;
 }
 
+function getEmailDividerLabel() {
+  const labels = {
+    es: "o usa correo",
+    en: "or use email",
+    fr: "ou utilise l'email",
+    pt: "ou use email",
+    ja: "またはメールを使う",
+    ko: "또는 이메일 사용",
+    ar: "أو استخدم البريد",
+    zh: "或使用邮箱",
+    de: "oder E-Mail verwenden",
+  };
+  return labels[state.language] || labels.en;
+}
+
 function renderAuthGate() {
   els.authEyebrow.textContent = t("authEyebrow");
   els.authTitle.textContent = t("authTitle");
@@ -964,7 +979,7 @@ function renderAuthGate() {
   els.authSubmitBtn.disabled = state.isAuthSubmitting;
   els.authGoogleBtn.textContent = t("authGoogle");
   els.authGoogleBtn.disabled = state.isAuthSubmitting;
-  els.authDivider.dataset.label = t("authDivider");
+  els.authDivider.dataset.label = getEmailDividerLabel();
   els.authLegal.textContent = t("authLegal");
 
   els.authMessage.textContent = state.authMessage;
