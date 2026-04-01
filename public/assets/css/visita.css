@@ -1006,6 +1006,38 @@ button {
     rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   min-height: 280px;
+  transition: min-height 0.3s ease, background 0.3s ease, border-color 0.3s ease;
+}
+
+.voice-visual dotlottie-wc {
+  width: clamp(180px, 42vw, 300px);
+  height: clamp(180px, 42vw, 300px);
+  transform-origin: center;
+  transition: transform 0.35s ease, opacity 0.35s ease;
+}
+
+.voice-visual.is-listening {
+  min-height: 320px;
+  background:
+    radial-gradient(circle at top, rgba(143, 212, 255, 0.24), transparent 34%),
+    rgba(255, 255, 255, 0.05);
+  border-color: rgba(143, 212, 255, 0.18);
+}
+
+.voice-visual.is-listening dotlottie-wc {
+  transform: scale(1.08);
+}
+
+.voice-visual.is-speaking {
+  min-height: 220px;
+  background:
+    radial-gradient(circle at top, rgba(255, 191, 95, 0.2), transparent 34%),
+    rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 191, 95, 0.18);
+}
+
+.voice-visual.is-speaking dotlottie-wc {
+  transform: scale(0.72);
 }
 
 .voice-copy {

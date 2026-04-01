@@ -22,9 +22,9 @@ import {
   set,
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const GOOGLE_API_KEY = "AIzaSyBj23Wfh83rIotROYlNtReoWm9zTZoWIFs"; 
+const GOOGLE_API_KEY = "AIzaSyAQMIAQGfVignXGUO_IUkwWpoKqX77OaaI"; 
 const OPENAI_API_KEY = "Openai Apikey";
-const OPENAI_TOKEN_ENDPOINT = "https://ia-641197532873.us-central1.run.app";
+const OPENAI_TOKEN_ENDPOINT = "https://ia-780373663877.us-central1.run.app";
 const EXPERIENCE_VERSION = "20260331h";
 const LOCAL_LANGUAGE_KEY = "travel-language";
 const LOCAL_LANGUAGE_CONFIRMED_KEY = "travel-language-confirmed";
@@ -402,6 +402,7 @@ const state = {
     connecting: false,
     micEnabled: DEFAULT_SETTINGS.micEnabled,
     voiceEnabled: DEFAULT_SETTINGS.voiceEnabled,
+    assistantSpeaking: false,
     activeResponseId: null,
     bufferByResponse: {},
   },
@@ -511,6 +512,7 @@ const els = {
   textModeBtn: document.getElementById("textModeBtn"),
   assistantVoicePane: document.getElementById("assistantVoicePane"),
   assistantTextPane: document.getElementById("assistantTextPane"),
+  voiceVisual: document.getElementById("voiceVisual"),
   voiceVisualizerTitle: document.getElementById("voiceVisualizerTitle"),
   voiceVisualizerHint: document.getElementById("voiceVisualizerHint"),
   chatsHeading: document.getElementById("chatsHeading"),
@@ -1324,6 +1326,15 @@ function getVoiceVisualizerCopy() {
     };
   }
 
+  if (state.realtime.assistantSpeaking) {
+    return {
+      title: state.language === "en" ? "The guide is speaking." : "La guia te esta respondiendo.",
+      hint: state.language === "en"
+        ? "The animation shrinks while the assistant is talking."
+        : "La animacion se hace pequena mientras la IA esta hablando.",
+    };
+  }
+
   if (!state.realtime.micEnabled) {
     return {
       title: t("speechMuted"),
@@ -1333,8 +1344,19 @@ function getVoiceVisualizerCopy() {
 
   return {
     title: t("speechReady"),
-    hint: `${state.location?.displayName || DEFAULT_COORDS.name} · ${buildWeatherMood()}`,
+    hint: `${
+      state.location?.locality || state.location?.region || state.location?.country || state.location?.displayName || DEFAULT_COORDS.name
+    } · ${buildWeatherMood()}`,
   };
+}
+
+function setAssistantSpeaking(isSpeaking) {
+  const nextValue = Boolean(isSpeaking);
+  if (state.realtime.assistantSpeaking === nextValue) {
+    return;
+  }
+  state.realtime.assistantSpeaking = nextValue;
+  renderAssistant();
 }
 
 function renderAccordionPanels() {
@@ -1589,6 +1611,8 @@ function renderAssistant() {
   els.textModeBtn.classList.toggle("is-active", state.assistantMode === "text");
   els.assistantVoicePane.classList.toggle("assistant-pane--hidden", state.assistantMode !== "voice");
   els.assistantTextPane.classList.toggle("assistant-pane--hidden", state.assistantMode !== "text");
+  els.voiceVisual.classList.toggle("is-speaking", state.realtime.assistantSpeaking);
+  els.voiceVisual.classList.toggle("is-listening", !state.realtime.assistantSpeaking);
   els.voiceVisualizerTitle.textContent = voiceCopy.title;
   els.voiceVisualizerHint.textContent = voiceCopy.hint;
   els.chatsHeading.textContent = t("chatsHeading");
@@ -1845,6 +1869,10 @@ async function detectLocation() {
       lng: position.coords.longitude,
     },
     displayName: DEFAULT_COORDS.name,
+    locality: "",
+    region: "",
+    country: "",
+    countryCode: "",
     reference: Boolean(position.reference),
   };
 }
@@ -1861,6 +1889,18 @@ async function reverseGeocode() {
 
   if (result) {
     state.location.displayName = result.formatted_address;
+    const components = Object.fromEntries(
+      (result.address_components || []).flatMap((component) =>
+        (component.types || []).map((type) => [type, component])
+      )
+    );
+    state.location.locality = components.locality?.long_name
+      || components.sublocality?.long_name
+      || components.administrative_area_level_2?.long_name
+      || "";
+    state.location.region = components.administrative_area_level_1?.long_name || "";
+    state.location.country = components.country?.long_name || "";
+    state.location.countryCode = components.country?.short_name || "";
   }
 }
 
@@ -2264,6 +2304,40 @@ function summarizePlaceForAssistant(place, index) {
   }`;
 }
 
+function buildLiveContextSnapshot(limit = 4) {
+  const recommended = getRecommendedPlaces(limit).map(summarizePlaceForAssistant).join("\n");
+  const savedPlan = state.plan
+    .slice(0, limit)
+    .map((place, index) => `${index + 1}. ${place.name} | ${place.routeSummary || t("routeNone")} | ${place.address || ""}`)
+    .join("\n");
+  const currentWeather = state.weather
+    ? `${weatherLabel(state.weather.current_weather.weathercode)} ${formatTemperature(
+        state.weather.current_weather.temperature
+      )}`
+    : t("weatherLoading");
+
+  return `
+LIVE CONTEXT. Use this as source of truth for every recommendation.
+- Country: ${state.location?.country || "Unknown"}
+- Region / state: ${state.location?.region || "Unknown"}
+- City / locality: ${state.location?.locality || "Unknown"}
+- Current place: ${state.location?.displayName || DEFAULT_COORDS.name}
+- Coordinates: ${
+    state.location?.coords ? `${state.location.coords.lat.toFixed(5)}, ${state.location.coords.lng.toFixed(5)}` : "Unknown"
+  }
+- Weather now: ${currentWeather}
+- Weather strategy: ${getWeatherStrategy()}
+- Preferred travel mode: ${t("travelModes")[state.travelMode] || state.travelMode}
+- Traveler memory: ${state.memorySummary}
+
+TOP LIVE CANDIDATES FROM GOOGLE:
+${recommended || "No nearby places loaded yet."}
+
+SAVED PLAN:
+${savedPlan || "No saved activities yet."}
+  `.trim();
+}
+
 function buildTurnResponseInstructions(userText = "") {
   const message = String(userText || "").toLowerCase();
   const asksForItinerary = /itiner|agenda|schedule|organi[sz]|ruta|route|plan de|plan for|roadmap|que hago hoy|what should i do/.test(
@@ -2274,14 +2348,22 @@ function buildTurnResponseInstructions(userText = "") {
   );
 
   if (asksForItinerary) {
-    return "Use live context and call compose_itinerary before answering. Explain the order, travel time, estimated time at each stop, and why it fits the weather and current location.";
+    return `Use only the current live context for the traveler location in ${state.location?.country || "the current country"}.
+Call compose_itinerary before answering.
+Explain the order, travel time, estimated time at each stop, and why it fits the weather and the current position.
+Do not mention another country, city, cuisine, or cultural reference unless it appears in the live context or the traveler asks for it.`;
   }
 
   if (asksForSuggestion) {
-    return "Do not answer generically. Use the current location, weather, and nearby places already loaded. Mention at least two named places and explain why they fit right now.";
+    return `Do not answer generically.
+Use the current traveler location, weather, nearby Google places, and saved plan.
+Mention at least two named places from the live context and explain why they fit right now.
+If nearby Google places are missing, say that clearly and ask the traveler to refresh context instead of improvising.
+Do not mention another country, city, cuisine, or cultural reference unless it appears in the live context or the traveler asks for it.`;
   }
 
-  return "Use the live travel context and the latest traveler memory whenever it makes the answer more useful.";
+  return `Use the live travel context and the latest traveler memory whenever it makes the answer more useful.
+Never drift to another country or generic travel advice if the live context already gives you the current location.`;
 }
 
 function buildRealtimeInstructions() {
@@ -2304,9 +2386,14 @@ You are a warm, proactive tourism concierge for travelers.
 Always reply in ${language}.
 Be concise, useful, and practical.
 Never give generic suggestions when live location, weather, nearby places, or saved plan data are available.
+The current traveler is physically in ${state.location?.country || "the current country"}, specifically around ${
+    state.location?.locality || state.location?.region || state.location?.displayName || DEFAULT_COORDS.name
+  }.
+Do not mention another country, city, cuisine, or regional cultural reference unless it appears in the live context below or the traveler explicitly asks for it.
 If the traveler asks what to do, what you suggest, or for a plan, use named places from the live context and explain weather fit, route convenience, and expected pacing.
 If the traveler asks for an itinerary, route order, or schedule, call compose_itinerary before answering.
 If the traveler asks for route details to a specific stop, call get_route_to_place.
+If nearby Google place data is missing, say that you do not have live nearby places yet and avoid improvising local details.
 Use the available tools whenever live data would improve the answer.
 Do not invent exact prices or schedules if the live context does not include them.
 Remember stable traveler preferences across turns and use them proactively when helpful.
@@ -2557,6 +2644,7 @@ async function handleRealtimeEvent(raw) {
 
   if (event.type === "response.created") {
     state.realtime.activeResponseId = event.response.id;
+    setAssistantSpeaking(false);
     createAssistantMessage(event.response.id);
     return;
   }
@@ -2567,16 +2655,21 @@ async function handleRealtimeEvent(raw) {
   }
 
   if (event.type === "response.output_audio_transcript.delta") {
+    if (state.realtime.voiceEnabled) {
+      setAssistantSpeaking(true);
+    }
     appendAssistantDelta(event.response_id, event.delta);
     return;
   }
 
   if (event.type === "input_audio_buffer.speech_started") {
+    setAssistantSpeaking(false);
     els.locationStatusText.textContent = t("speechReady");
     return;
   }
 
   if (event.type === "input_audio_buffer.speech_stopped") {
+    setAssistantSpeaking(false);
     els.locationStatusText.textContent = state.realtime.micEnabled ? t("speechReady") : t("speechMuted");
     return;
   }
@@ -2611,6 +2704,7 @@ async function handleRealtimeEvent(raw) {
     } else if (finalText) {
       pushMessage("assistant", finalText);
     }
+    setAssistantSpeaking(false);
   }
 }
 
@@ -2836,6 +2930,7 @@ function disconnectRealtime() {
     connecting: false,
     micEnabled,
     voiceEnabled,
+    assistantSpeaking: false,
     activeResponseId: null,
     bufferByResponse: {},
   };
@@ -2857,11 +2952,23 @@ function toggleMicrophone() {
 
 function toggleVoice() {
   state.realtime.voiceEnabled = !state.realtime.voiceEnabled;
+  if (!state.realtime.voiceEnabled) {
+    setAssistantSpeaking(false);
+  }
   if (state.realtime.connected) {
     updateRealtimeSession();
   }
   schedulePersist();
   renderAssistant();
+}
+
+function buildAssistantInputText(userText) {
+  return `
+${buildLiveContextSnapshot()}
+
+TRAVELER REQUEST:
+${String(userText || "").trim()}
+  `.trim();
 }
 
 function sendTextToAssistant(text) {
@@ -2884,7 +2991,7 @@ function sendTextToAssistant(text) {
       content: [
         {
           type: "input_text",
-          text: clean,
+          text: buildAssistantInputText(clean),
         },
       ],
     },
@@ -2893,7 +3000,7 @@ function sendTextToAssistant(text) {
     type: "response.create",
     response: {
       output_modalities: state.realtime.voiceEnabled ? ["audio", "text"] : ["text"],
-      instructions: buildTurnResponseInstructions(clean),
+      instructions: `${buildTurnResponseInstructions(clean)}\n\n${buildLiveContextSnapshot(3)}`,
     },
   });
 }
@@ -2959,6 +3066,7 @@ function resetTravelerSession() {
   };
   state.realtime.micEnabled = DEFAULT_SETTINGS.micEnabled;
   state.realtime.voiceEnabled = DEFAULT_SETTINGS.voiceEnabled;
+  state.realtime.assistantSpeaking = false;
   state.assistantMode = DEFAULT_SETTINGS.assistantMode;
   setChats([createChat()]);
   localStorage.removeItem(LOCAL_PLAN_KEY);
@@ -2988,6 +3096,7 @@ async function hydrateUserState(firebaseUser) {
     state.realtime.voiceEnabled = state.assistantMode === "voice"
       ? stored.settings?.voiceEnabled ?? DEFAULT_SETTINGS.voiceEnabled
       : false;
+    state.realtime.assistantSpeaking = false;
     state.plan = sanitizePlan(stored.plan ?? loadPlan());
     setChats(stored.chats, stored.activeChatId);
     state.memorySummary = String(stored.memorySummary || "").trim() || buildTravelerMemory();
@@ -3152,6 +3261,17 @@ async function refreshContext() {
 }
 
 function bindEvents() {
+  els.remoteAudio.addEventListener("playing", () => {
+    if (state.realtime.voiceEnabled) {
+      setAssistantSpeaking(true);
+    }
+  });
+  ["pause", "ended", "waiting"].forEach((eventName) => {
+    els.remoteAudio.addEventListener(eventName, () => {
+      setAssistantSpeaking(false);
+    });
+  });
+
   document.addEventListener("click", (event) => {
     const accordionToggle = event.target.closest("[data-accordion-toggle]");
     if (accordionToggle) {
@@ -3227,6 +3347,9 @@ function bindEvents() {
     if (assistantModeButton) {
       state.assistantMode = assistantModeButton.dataset.assistantMode === "text" ? "text" : "voice";
       state.realtime.voiceEnabled = state.assistantMode === "voice";
+      if (state.assistantMode !== "voice") {
+        setAssistantSpeaking(false);
+      }
       if (state.realtime.connected) {
         updateRealtimeSession();
       }
