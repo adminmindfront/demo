@@ -112,7 +112,7 @@
       }
 
       .start-gate__card p {
-        margin: 0;
+        margin: 0 0 1rem;
         color: rgba(255, 255, 255, 0.82);
         line-height: 1.45;
       }
@@ -166,12 +166,15 @@
         right: 1rem;
         bottom: 1.2rem;
         display: flex;
-        justify-content: center;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.8rem;
         pointer-events: auto;
       }
 
-      .stamp-button {
-        min-width: 15rem;
+      .action-button {
+        min-width: min(18rem, 100%);
+        max-width: min(22rem, 100%);
         padding: 1rem 1.4rem;
         border: 0;
         border-radius: 999px;
@@ -179,16 +182,24 @@
         font-size: 1rem;
         font-weight: 800;
         font-family: "Manrope", sans-serif;
-        background: linear-gradient(135deg, var(--green-500), #1d8d49);
-        box-shadow: 0 18px 40px rgba(29, 141, 73, 0.32);
         display: none;
         cursor: pointer;
       }
 
-      .stamp-button.is-visible {
+      .action-button.is-visible {
         display: inline-flex;
         align-items: center;
         justify-content: center;
+      }
+
+      .stamp-button {
+        background: linear-gradient(135deg, var(--green-500), #1d8d49);
+        box-shadow: 0 18px 40px rgba(29, 141, 73, 0.32);
+      }
+
+      .map-button {
+        background: linear-gradient(135deg, #3c5874, #23425f);
+        box-shadow: 0 18px 40px rgba(35, 66, 95, 0.32);
       }
 
       .frame {
@@ -228,7 +239,8 @@
 
     <div class="start-gate" id="startGate">
       <div class="start-gate__card">
-        <h1>Haz clic para iniciar la camara</h1>
+        <h1>Haz clic para iniciar la cámara</h1>
+        <p id="startGateCopy">Prepara el target del pabellón para comenzar la experiencia.</p>
         <button id="startExperienceBtn" class="start-gate__button" type="button">
           Iniciar experiencia
         </button>
@@ -238,11 +250,12 @@
     <div class="hud">
       <div class="message" id="message">
         <strong>Escaner AR MUDE</strong>
-        <span id="messageText">Apunta al target del pabellon "El desierto y su pasado".</span>
+        <span id="messageText">Apunta al target del pabellón.</span>
       </div>
       <div class="frame" aria-hidden="true"></div>
       <div class="controls">
-        <button id="stampButton" class="stamp-button" type="button">Obtener Sello</button>
+        <button id="mapButton" class="action-button map-button" type="button">¿Cómo llegar?</button>
+        <button id="stampButton" class="action-button stamp-button" type="button">Obtener sello</button>
       </div>
     </div>
 
@@ -251,17 +264,25 @@
       import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
       import { MindARThree } from "mindar-image-three";
 
-      const TARGETS_URL = "./assets/ar/targets/targets.mind";
-      const MODEL_URL = "./assets/ar/models/modelo.glb";
+      const params = new URLSearchParams(window.location.search);
+      const pavilionId = Number(params.get("pavilionId") || "1");
+      const pavilionName = params.get("name") || "El desierto y su pasado";
+      const TARGETS_URL = params.get("targetSrc") || "./assets/ar/targets/targets.mind";
+      const MODEL_URL = params.get("modelSrc") || "./assets/ar/models/modelo.glb";
+      const MAP_URL = params.get("mapUrl") || "";
       const IMAGE_URL = "./assets/ar/images/mude.png";
       const AUDIO_URL = "./assets/ar/audio/dino.mp3";
+
+      document.title = `Escaner AR ${pavilionName}`;
 
       const container = document.querySelector("#container");
       const messageText = document.querySelector("#messageText");
       const message = document.querySelector("#message");
       const stampButton = document.querySelector("#stampButton");
+      const mapButton = document.querySelector("#mapButton");
       const frame = document.querySelector(".frame");
       const startGate = document.querySelector("#startGate");
+      const startGateCopy = document.querySelector("#startGateCopy");
       const startExperienceBtn = document.querySelector("#startExperienceBtn");
 
       const clock = new THREE.Clock();
@@ -284,7 +305,14 @@
         messageText.textContent = text;
       }
 
+      function setButtonState(found) {
+        stampButton.classList.toggle("is-visible", found);
+        mapButton.classList.toggle("is-visible", found && Boolean(MAP_URL));
+      }
+
       function setScanningState(found) {
+        setButtonState(found);
+
         if (found) {
           message.classList.add("is-hidden");
           frame.classList.add("is-hidden");
@@ -390,7 +418,7 @@
       }
 
       async function startAR() {
-        setMessage("Iniciando camara y cargando experiencia...");
+        setMessage(`Iniciando camara y cargando ${pavilionName}...`);
 
         mindarThree = new MindARThree({
           container,
@@ -413,15 +441,13 @@
         const anchor = mindarThree.addAnchor(0);
 
         anchor.onTargetFound = () => {
-          stampButton.classList.add("is-visible");
           setScanningState(true);
           playDinoAudio();
         };
 
         anchor.onTargetLost = () => {
-          stampButton.classList.remove("is-visible");
           setScanningState(false);
-          setMessage("Apunta nuevamente a la imagen target.");
+          setMessage(`Apunta nuevamente al target de "${pavilionName}".`);
           dinoAudio.pause();
           dinoAudio.currentTime = 0;
         };
@@ -436,7 +462,7 @@
           renderer.render(scene, camera);
         });
 
-        setMessage("AR activa. Busca el target del pabellon.");
+        setMessage(`AR activa. Busca el target de "${pavilionName}".`);
       }
 
       async function stopAR() {
@@ -450,12 +476,23 @@
         dinoAudio.currentTime = 0;
       }
 
+      startGateCopy.textContent = `Prepara el target del pabellón "${pavilionName}" para comenzar la experiencia.`;
+      setMessage(`Apunta al target del pabellón "${pavilionName}".`);
+
       stampButton.addEventListener("click", async () => {
         await stopAR();
         window.parent.postMessage(
-          { type: "mude-ar-stamp-earned", pavilionId: 1 },
+          { type: "mude-ar-stamp-earned", pavilionId },
           window.location.origin
         );
+      });
+
+      mapButton.addEventListener("click", () => {
+        if (!MAP_URL) {
+          return;
+        }
+
+        window.open(MAP_URL, "_blank", "noopener,noreferrer");
       });
 
       startExperienceBtn.addEventListener("click", async () => {
@@ -465,7 +502,7 @@
 
         isStarting = true;
         startExperienceBtn.disabled = true;
-        startExperienceBtn.textContent = "Abriendo camara...";
+        startExperienceBtn.textContent = "Abriendo cámara...";
 
         try {
           await primeAudio();
@@ -475,10 +512,10 @@
           console.error(error);
           if (error?.name === "NotReadableError") {
             setMessage(
-              "La camara esta en uso por otra aplicacion o pestaña. Cierra la otra camara e intenta de nuevo."
+              "La cámara está en uso por otra aplicación o pestaña. Cierra la otra cámara e intenta de nuevo."
             );
           } else {
-            setMessage("No se pudo iniciar la experiencia AR. Revisa permisos de camara.");
+            setMessage("No se pudo iniciar la experiencia AR. Revisa permisos de cámara.");
           }
         } finally {
           isStarting = false;

@@ -21,6 +21,8 @@
       :root {
         --earth-600: #8b5a2b;
         --earth-700: #6b4421;
+        --green-500: #2f9e58;
+        --blue-700: #23425f;
       }
 
       html,
@@ -127,12 +129,14 @@
         bottom: 1.2rem;
         transform: translateX(-50%);
         z-index: 20;
+        width: min(22rem, calc(100vw - 2rem));
         display: flex;
-        align-items: center;
+        flex-direction: column;
         gap: 0.75rem;
       }
 
       .action-button {
+        width: 100%;
         border: 0;
         border-radius: 999px;
         padding: 1rem 1.2rem;
@@ -142,16 +146,42 @@
         cursor: pointer;
       }
 
-      #arBtn {
+      .primary-button {
         color: white;
         background: linear-gradient(135deg, var(--earth-600), var(--earth-700));
         box-shadow: 0 16px 30px rgba(107, 68, 33, 0.3);
       }
 
+      .map-button {
+        color: white;
+        background: linear-gradient(135deg, #3c5874, var(--blue-700));
+        box-shadow: 0 16px 30px rgba(35, 66, 95, 0.28);
+      }
+
+      .stamp-button {
+        color: white;
+        background: linear-gradient(135deg, var(--green-500), #1d8d49);
+        box-shadow: 0 16px 30px rgba(29, 141, 73, 0.28);
+      }
+
       .close-button {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 25;
+        width: 3rem;
+        height: 3rem;
+        border: 0;
+        border-radius: 50%;
         color: #2f241c;
+        font-size: 1.35rem;
         background: rgba(255, 250, 244, 0.92);
         box-shadow: 0 16px 30px rgba(18, 13, 9, 0.18);
+        cursor: pointer;
+      }
+
+      .is-hidden {
+        display: none !important;
       }
 
       @keyframes spin {
@@ -165,23 +195,18 @@
           top: 6.1rem;
           width: min(46vw, 8rem);
         }
-
-        .viewer-actions {
-          width: calc(100vw - 2rem);
-        }
-
-        .action-button {
-          flex: 1;
-          padding-inline: 0.95rem;
-        }
       }
     </style>
   </head>
   <body>
     <div class="message">
-      <strong>Dinosaurio MUDE</strong>
+      <strong id="viewerTitle">MUDE</strong>
       <span id="messageText">Explora el modelo 3D y usa AR para verlo en tu entorno.</span>
     </div>
+
+    <button id="closeBtn" class="close-button" type="button" aria-label="Cerrar visor">
+      ×
+    </button>
 
     <div class="viewer-brand">
       <img src="./assets/ar/images/mude.png" alt="MUDE" />
@@ -196,8 +221,6 @@
 
     <model-viewer
       id="viewer"
-      src="./assets/ar/models/modelo.glb"
-      ios-src="./assets/ar/models/modelo2.usdz"
       ar
       ar-modes="webxr scene-viewer quick-look"
       ar-placement="floor"
@@ -212,20 +235,45 @@
     ></model-viewer>
 
     <div class="viewer-actions">
-      <button id="arBtn" class="action-button" type="button">Ver en AR</button>
-      <button id="closeBtn" class="action-button close-button" type="button">Cerrar</button>
+      <button id="arBtn" class="action-button primary-button" type="button">Ver en AR</button>
+      <button id="mapBtn" class="action-button map-button is-hidden" type="button">¿Cómo llegar?</button>
+      <button id="stampBtn" class="action-button stamp-button is-hidden" type="button">Obtener sello</button>
     </div>
 
     <script>
+      const params = new URLSearchParams(window.location.search);
+      const pavilionId = Number(params.get("pavilionId") || "1");
+      const pavilionName = params.get("name") || "Dinosaurio MUDE";
+      const MODEL_URL = params.get("modelSrc") || "./assets/ar/models/modelo.glb";
+      const IOS_MODEL_URL = params.get("iosSrc") || "./assets/ar/models/modelo2.usdz";
+      const MAP_URL = params.get("mapUrl") || "";
+
+      document.title = `Visor 3D ${pavilionName}`;
+
       const messageText = document.querySelector("#messageText");
+      const viewerTitle = document.querySelector("#viewerTitle");
       const viewer = document.querySelector("#viewer");
       const arBtn = document.querySelector("#arBtn");
+      const mapBtn = document.querySelector("#mapBtn");
+      const stampBtn = document.querySelector("#stampBtn");
       const closeBtn = document.querySelector("#closeBtn");
       const loadingOverlay = document.querySelector("#loadingOverlay");
       const dinoAudio = new Audio("./assets/ar/audio/dino.mp3");
 
       dinoAudio.loop = true;
       dinoAudio.preload = "auto";
+
+      viewerTitle.textContent = pavilionName;
+      viewer.setAttribute("src", MODEL_URL);
+
+      if (IOS_MODEL_URL) {
+        viewer.setAttribute("ios-src", IOS_MODEL_URL);
+      }
+
+      if (MAP_URL) {
+        mapBtn.classList.remove("is-hidden");
+        stampBtn.classList.remove("is-hidden");
+      }
 
       function setMessage(text) {
         messageText.textContent = text;
@@ -246,7 +294,7 @@
         const status = event.detail.status;
 
         if (status === "session-started") {
-          setMessage("AR activa. Coloca el dinosaurio en tu entorno.");
+          setMessage("AR activa. Coloca el modelo en tu entorno.");
           playAudioSafe();
           return;
         }
@@ -261,12 +309,29 @@
 
       arBtn.addEventListener("click", playAudioSafe);
       arBtn.addEventListener("click", () => viewer.activateAR());
+
+      mapBtn.addEventListener("click", () => {
+        if (!MAP_URL) {
+          return;
+        }
+
+        window.open(MAP_URL, "_blank", "noopener,noreferrer");
+      });
+
+      stampBtn.addEventListener("click", () => {
+        window.parent.postMessage(
+          { type: "mude-ar-stamp-earned", pavilionId },
+          window.location.origin
+        );
+      });
+
       closeBtn.addEventListener("click", () => {
         window.parent.postMessage(
           { type: "mude-close-viewer" },
           window.location.origin
         );
       });
+
       document.addEventListener("visibilitychange", () => {
         if (document.hidden) {
           dinoAudio.pause();

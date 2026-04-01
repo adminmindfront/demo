@@ -17,6 +17,7 @@
   --blue-700: #2a567b;
   --orange-600: #d16b24;
   --ochre-700: #9b6b1f;
+  --wine-700: #7d2e4c;
   --green-500: #2f9e58;
   --green-100: #e4f6ea;
   --red-500: #d84f44;
@@ -697,6 +698,10 @@ img {
   background: linear-gradient(135deg, #4b8d4e, #2e6536);
 }
 
+.stamp-card__icon--wine {
+  background: linear-gradient(135deg, #a33e62, #6f203f);
+}
+
 .stamp-card__name {
   margin: 0;
   font-size: 0.78rem;
@@ -927,6 +932,10 @@ img {
 
 .pavilion-card__bar--green {
   background: linear-gradient(90deg, #5a9d5d, #2e6536);
+}
+
+.pavilion-card__bar--wine {
+  background: linear-gradient(90deg, #b44a71, #6f203f);
 }
 
 .pavilion-card__content {

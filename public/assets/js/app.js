@@ -118,6 +118,47 @@ function buildPhotoGalleryUrl() {
   return `./photo-gallery.html?${params.toString()}`;
 }
 
+function pavilionHasImmersiveAr(pavilion) {
+  return Boolean(pavilion?.scannerTargetSrc && pavilion?.scannerModelSrc);
+}
+
+function pavilionHasModelViewer(pavilion) {
+  return Boolean(pavilion?.viewerModelSrc);
+}
+
+function buildArScannerUrl(pavilion) {
+  const params = new URLSearchParams();
+  params.set("v", EXPERIENCE_VERSION);
+  params.set("pavilionId", pavilion.id);
+  params.set("name", pavilion.name);
+  params.set("targetSrc", pavilion.scannerTargetSrc);
+  params.set("modelSrc", pavilion.scannerModelSrc);
+
+  if (pavilion.mapUrl) {
+    params.set("mapUrl", pavilion.mapUrl);
+  }
+
+  return `./ar-scanner.html?${params.toString()}`;
+}
+
+function buildModelViewerUrl(pavilion) {
+  const params = new URLSearchParams();
+  params.set("v", EXPERIENCE_VERSION);
+  params.set("pavilionId", pavilion.id);
+  params.set("name", pavilion.name);
+  params.set("modelSrc", pavilion.viewerModelSrc);
+
+  if (pavilion.viewerIosSrc) {
+    params.set("iosSrc", pavilion.viewerIosSrc);
+  }
+
+  if (pavilion.mapUrl) {
+    params.set("mapUrl", pavilion.mapUrl);
+  }
+
+  return `./ar-viewer.html?${params.toString()}`;
+}
+
 function renderBrandMark() {
   return `
     <div class="brand__mark">
@@ -565,13 +606,13 @@ function renderPassportView() {
       <section class="section-block">
         <h3 class="section-title">
           ${renderIcon("scan-line", { className: "section-title__icon", size: 18 })}
-          Sellos de expedicion (${state.unlockedStamps.length}/4)
+          Sellos de expedicion (${state.unlockedStamps.length}/${PAVILIONS.length})
         </h3>
 
         <div class="stamp-grid">
           ${PAVILIONS.map((pavilion) => {
             const unlocked = state.unlockedStamps.includes(pavilion.id);
-            const isInteractive = unlocked && pavilion.id === 1;
+            const isInteractive = unlocked && pavilionHasModelViewer(pavilion);
             return `
               <article
                 class="stamp-card ${unlocked ? "is-unlocked" : ""} ${isInteractive ? "is-interactive" : ""}"
@@ -938,8 +979,8 @@ function renderARExperienceModal() {
 
         <iframe
           class="experience-frame"
-          src="./ar-scanner.html?v=${EXPERIENCE_VERSION}"
-          title="Escaner AR MUDE"
+          src="${buildArScannerUrl(state.showARExperience)}"
+          title="Escaner AR ${escapeHtml(state.showARExperience.name)}"
           allow="autoplay; camera; xr-spatial-tracking; fullscreen"
         ></iframe>
       </section>
@@ -965,8 +1006,8 @@ function renderModelViewerModal() {
 
         <iframe
           class="experience-frame"
-          src="./ar-viewer.html?v=${EXPERIENCE_VERSION}"
-          title="Visor 3D y AR MUDE"
+          src="${buildModelViewerUrl(state.showModelViewer)}"
+          title="Visor 3D y AR ${escapeHtml(state.showModelViewer.name)}"
           allow="autoplay; camera; xr-spatial-tracking; fullscreen"
         ></iframe>
       </section>
@@ -1291,7 +1332,7 @@ function openArScanner(pavilionId) {
     return;
   }
 
-  if (pavilion.id === 1) {
+  if (pavilionHasImmersiveAr(pavilion)) {
     state.showARExperience = pavilion;
     renderApp();
     return;
@@ -1461,6 +1502,7 @@ window.addEventListener("message", (event) => {
     }
 
     state.showARExperience = null;
+    state.showModelViewer = null;
     state.showStampCelebration = pavilion;
     renderApp();
     return;
