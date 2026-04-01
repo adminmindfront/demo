@@ -22,9 +22,9 @@ import {
   set,
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const GOOGLE_API_KEY = "Google Apikey";
+const GOOGLE_API_KEY = "AIzaSyAQMIAQGfVignXGUO_IUkwWpoKqX77OaaI";
 const OPENAI_API_KEY = "Openai Apikey";
-const OPENAI_TOKEN_ENDPOINT = "";
+const OPENAI_TOKEN_ENDPOINT = "https://ia-641197532873.us-central1.run.app";
 const EXPERIENCE_VERSION = "20260331h";
 const LOCAL_LANGUAGE_KEY = "travel-language";
 const LOCAL_PLAN_KEY = "travel-plan";
@@ -508,6 +508,10 @@ function langMeta(code = state.language) {
 
 function isConfigured(value) {
   return value && !/apikey/i.test(value);
+}
+
+function hasRealtimeAuth() {
+  return Boolean(OPENAI_TOKEN_ENDPOINT) || isConfigured(OPENAI_API_KEY);
 }
 
 function weatherLabel(code) {
@@ -1069,7 +1073,7 @@ function renderAssistant() {
   els.locationStatusText.textContent = state.location ? t("locating") : t("locatingBusy");
   els.assistantNotice.textContent = !state.user
     ? t("loginRequired")
-    : isConfigured(OPENAI_API_KEY)
+    : hasRealtimeAuth()
       ? `${t("assistantNotice")} ${t("savedLabel")}.`
       : t("openaiMissing");
   els.chatInput.placeholder = t("placeholder");
@@ -1806,7 +1810,21 @@ async function handleRealtimeEvent(raw) {
 
 async function getRealtimeToken() {
   if (OPENAI_TOKEN_ENDPOINT) {
-    const response = await fetch(OPENAI_TOKEN_ENDPOINT);
+    const response = await fetch(OPENAI_TOKEN_ENDPOINT, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "gpt-realtime",
+        voice: "marin",
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Realtime token endpoint failed with ${response.status}`);
+    }
+
     const data = await response.json();
     return data.client_secret?.value || data.value || data.client_secret;
   }

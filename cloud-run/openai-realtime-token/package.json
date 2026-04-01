@@ -1,0 +1,11 @@
+{
+  "name": "openai-realtime-token",
+  "private": true,
+  "main": "index.js",
+  "dependencies": {
+    "@google-cloud/functions-framework": "^3.0.0"
+  },
+  "scripts": {
+    "start": "functions-framework --target=helloHttp"
+  }
+}
