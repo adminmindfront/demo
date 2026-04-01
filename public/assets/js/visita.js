@@ -398,6 +398,8 @@ const els = {
   languageGrid: document.getElementById("languageGrid"),
   languageTitle: document.getElementById("languageTitle"),
   languageHint: document.getElementById("languageHint"),
+  languageCurrent: document.getElementById("languageCurrent"),
+  languageCloseBtn: document.getElementById("languageCloseBtn"),
   authGate: document.getElementById("authGate"),
   authEyebrow: document.getElementById("authEyebrow"),
   authTitle: document.getElementById("authTitle"),
@@ -861,13 +863,27 @@ function renderLanguageGate() {
   document.documentElement.dir = current.dir;
   els.languageTitle.textContent = t("gateTitle");
   els.languageHint.textContent = t("gateHint");
+  els.languageCurrent.innerHTML = `
+    <article class="language-current__card">
+      <span class="language-current__flag">${current.flag}</span>
+      <div class="language-current__copy">
+        <strong>${escapeHtml(current.label)}</strong>
+        <span>${escapeHtml(current.name)}</span>
+      </div>
+      <span class="language-current__badge">${escapeHtml(t("languagePill"))}</span>
+    </article>
+  `;
   els.languageGrid.innerHTML = LANGUAGES.map((item) => `
-    <button class="language-option" type="button" data-language="${item.code}">
+    <button class="language-option ${item.code === current.code ? "is-selected" : ""}" type="button" data-language="${item.code}">
       <span class="language-option__flag">${item.flag}</span>
-      <span class="language-option__name">${item.label}</span>
-      <span class="language-option__code">${item.name}</span>
+      <span class="language-option__meta">
+        <span class="language-option__name">${item.label}</span>
+        <span class="language-option__code">${item.name}</span>
+      </span>
+      <span class="language-option__check">${item.code === current.code ? "●" : "○"}</span>
     </button>
   `).join("");
+  els.languageCloseBtn.style.display = localStorage.getItem(LOCAL_LANGUAGE_KEY) ? "inline-flex" : "none";
 }
 
 function renderAuthGate() {
@@ -2341,6 +2357,9 @@ function bindEvents() {
 
   els.changeLanguageBtn.addEventListener("click", () => {
     els.languageGate.style.display = "grid";
+  });
+  els.languageCloseBtn.addEventListener("click", () => {
+    els.languageGate.style.display = "none";
   });
   els.authLoginModeBtn.addEventListener("click", () => {
     state.authMode = "login";

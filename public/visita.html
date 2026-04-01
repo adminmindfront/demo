@@ -15,8 +15,15 @@
   <body>
     <div class="language-gate" id="languageGate">
       <section class="language-card">
-        <h1 id="languageTitle"></h1>
-        <p id="languageHint"></p>
+        <div class="language-card__head">
+          <div>
+            <div class="language-card__eyebrow">Global travel</div>
+            <h1 id="languageTitle"></h1>
+            <p id="languageHint"></p>
+          </div>
+          <button class="language-card__close" id="languageCloseBtn" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="language-current" id="languageCurrent"></div>
         <div class="language-grid" id="languageGrid"></div>
       </section>
     </div>
