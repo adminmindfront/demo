@@ -22,7 +22,7 @@ import {
   set,
 } from "https://www.gstatic.com/firebasejs/12.7.0/firebase-database.js";
 
-const GOOGLE_API_KEY = "AIzaSyAQMIAQGfVignXGUO_IUkwWpoKqX77OaaI";
+const GOOGLE_API_KEY = "AIzaSyBj23Wfh83rIotROYlNtReoWm9zTZoWIFs"; 
 const OPENAI_API_KEY = "Openai Apikey";
 const OPENAI_TOKEN_ENDPOINT = "https://ia-641197532873.us-central1.run.app";
 const EXPERIENCE_VERSION = "20260331h";
